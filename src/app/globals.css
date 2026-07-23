@@ -1,0 +1,288 @@
+/* 儿童友好的全局样式 / Child-friendly global styles */
+
+:root {
+  /* 温暖明亮的配色方案 / Warm and bright color palette */
+  --color-sky: #87CEEB;
+  --color-sunshine: #FFD93D;
+  --color-grass: #6BCF7F;
+  --color-sunset: #FF9A76;
+  --color-lavender: #B8A4D9;
+  --color-cloud: #F8F9FA;
+  --color-earth: #8B6F47;
+  --color-ocean: #4A90E2;
+
+  /* 语义化颜色 / Semantic colors */
+  --color-bg: #FFF8F0;
+  --color-card: #FFFFFF;
+  --color-text: #2C3E50;
+  --color-text-soft: #5A6C7D;
+  --color-border: #E0D5C7;
+  --color-shadow: rgba(0, 0, 0, 0.08);
+
+  /* 状态颜色 / State colors */
+  --color-primary: var(--color-ocean);
+  --color-success: var(--color-grass);
+  --color-warning: var(--color-sunshine);
+  --color-danger: var(--color-sunset);
+
+  /* 间距 / Spacing */
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* 圆角 / Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* 阴影 / Shadows */
+  --shadow-sm: 0 2px 8px var(--color-shadow);
+  --shadow-md: 0 4px 16px var(--color-shadow);
+  --shadow-lg: 0 8px 24px var(--color-shadow);
+
+  /* 字体 / Typography */
+  --font-body: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-display: 'Comic Sans MS', 'Marker Felt', 'KaiTi', cursive;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: linear-gradient(135deg, #FFF8F0 0%, #FFE8D6 100%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 标题样式 / Heading styles */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+
+/* 按钮基础样式 / Button base styles */
+button {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  min-height: 44px; /* 更大的可点击区域 / Larger touch target */
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* 主要按钮 / Primary button */
+button[type="button"]:not([aria-expanded]) {
+  background: linear-gradient(135deg, var(--color-ocean) 0%, var(--color-sky) 100%);
+  color: white;
+}
+
+/* 输入框样式 / Input styles */
+input[type="text"],
+input[type="email"],
+textarea {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: var(--space-md);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  color: var(--color-text);
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+textarea {
+  resize: vertical;
+  line-height: 1.8;
+  font-size: 1.1rem;
+}
+
+/* 卡片样式 / Card styles */
+.card {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-lg);
+}
+
+/* 标签样式 / Label styles */
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text);
+}
+
+/* 单选框美化 / Radio button styling */
+input[type="radio"] {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--color-border);
+  border-radius: 50%;
+  margin-right: var(--space-sm);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+input[type="radio"]:checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+}
+
+input[type="radio"]:checked::after {
+  content: '✓';
+  position: absolute;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 复选框美化 / Checkbox styling */
+input[type="checkbox"] {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-right: var(--space-sm);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--color-grass);
+  background: var(--color-grass);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 动画效果 / Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-in {
+  animation: slideIn 0.3s ease;
+}
+
+/* 滚动条美化 / Scrollbar styling */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-cloud);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-soft);
+}
+
+/* 辅助类 / Utility classes */
+.emoji {
+  font-size: 1.5em;
+  margin-right: var(--space-xs);
+}
+
+.badge {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-sunshine);
+  color: var(--color-text);
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
