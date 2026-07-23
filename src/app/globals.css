@@ -1,53 +1,46 @@
-/* 儿童友好的全局样式 / Child-friendly global styles */
+/* Trace-Bound 全局样式：纸张感 + 单一强调色 + 高对比可读性 */
 
 :root {
-  /* 温暖明亮的配色方案 / Warm and bright color palette */
-  --color-sky: #87CEEB;
-  --color-sunshine: #FFD93D;
-  --color-grass: #6BCF7F;
-  --color-sunset: #FF9A76;
-  --color-lavender: #B8A4D9;
-  --color-cloud: #F8F9FA;
-  --color-earth: #8B6F47;
-  --color-ocean: #4A90E2;
+  /* 纸张与墨水 */
+  --paper: #FBF7EE;
+  --paper-soft: #F4EEDF;
+  --card: #FFFDF7;
+  --ink: #2A2A33;
+  --ink-soft: #6B6B76;
+  --line: #E7DFCB;
 
-  /* 语义化颜色 / Semantic colors */
-  --color-bg: #FFF8F0;
-  --color-card: #FFFFFF;
-  --color-text: #2C3E50;
-  --color-text-soft: #5A6C7D;
-  --color-border: #E0D5C7;
-  --color-shadow: rgba(0, 0, 0, 0.08);
+  /* 强调色（薄荷 → 琥珀） */
+  --accent: #2F7A6B;
+  --accent-soft: #B4DDD1;
+  --accent-wash: #E4F1EC;
+  --amber: #C97A2B;
+  --amber-soft: #F1D6A9;
+  --amber-wash: #FBEFD6;
 
-  /* 状态颜色 / State colors */
-  --color-primary: var(--color-ocean);
-  --color-success: var(--color-grass);
-  --color-warning: var(--color-sunshine);
-  --color-danger: var(--color-sunset);
+  /* 状态色 */
+  --danger: #B8442B;
+  --danger-wash: #F6DED4;
 
-  /* 间距 / Spacing */
-  --space-xs: 0.5rem;
-  --space-sm: 0.75rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  --space-2xl: 3rem;
+  /* 版式尺度 */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
 
-  /* 圆角 / Border radius */
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-full: 9999px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
 
-  /* 阴影 / Shadows */
-  --shadow-sm: 0 2px 8px var(--color-shadow);
-  --shadow-md: 0 4px 16px var(--color-shadow);
-  --shadow-lg: 0 8px 24px var(--color-shadow);
+  --shadow-1: 0 1px 2px rgba(31, 20, 8, 0.05), 0 2px 8px rgba(31, 20, 8, 0.04);
+  --shadow-2: 0 4px 20px rgba(31, 20, 8, 0.08);
+  --shadow-3: 0 12px 40px rgba(31, 20, 8, 0.12);
 
-  /* 字体 / Typography */
-  --font-body: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-display: 'Comic Sans MS', 'Marker Felt', 'KaiTi', cursive;
+  --font-sans: "Nunito", "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "SimSun", serif;
 }
 
 * {
@@ -56,233 +49,260 @@
   padding: 0;
 }
 
-html, body {
-  width: 100%;
+html,
+body {
   height: 100%;
 }
 
 body {
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.6;
-  color: var(--color-text);
-  background: linear-gradient(135deg, #FFF8F0 0%, #FFE8D6 100%);
+  color: var(--ink);
+  background: var(--paper);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 标题样式 / Heading styles */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--color-text);
-  margin-bottom: var(--space-md);
+/* 全局背景纸纹（很轻） */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(90, 60, 20, 0.03) 1px, transparent 1px);
+  background-size: 12px 12px;
+  z-index: 0;
 }
 
-h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.5rem; }
-h4 { font-size: 1.25rem; }
-
-/* 按钮基础样式 / Button base styles */
-button {
-  font-family: var(--font-body);
-  font-size: 1rem;
+/* 标题：中文用衬线，情绪更稳 */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-serif);
   font-weight: 600;
-  padding: var(--space-sm) var(--space-lg);
-  border: none;
-  border-radius: var(--radius-full);
+  line-height: 1.25;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 2rem;
+}
+h2 {
+  font-size: 1.5rem;
+}
+h3 {
+  font-size: 1.2rem;
+}
+h4 {
+  font-size: 1rem;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-sm);
-  min-height: 44px; /* 更大的可点击区域 / Larger touch target */
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+    border-color 0.12s ease, color 0.12s ease;
 }
-
 button:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-1);
 }
-
 button:active {
   transform: translateY(0);
 }
-
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
+  transform: none;
+  box-shadow: none;
 }
 
-/* 主要按钮 / Primary button */
-button[type="button"]:not([aria-expanded]) {
-  background: linear-gradient(135deg, var(--color-ocean) 0%, var(--color-sky) 100%);
+.btn-primary {
+  background: var(--accent);
   color: white;
+  border-color: var(--accent);
+}
+.btn-primary:hover {
+  background: #26685B;
+  border-color: #26685B;
 }
 
-/* 输入框样式 / Input styles */
+.btn-amber {
+  background: var(--amber);
+  color: white;
+  border-color: var(--amber);
+}
+.btn-amber:hover {
+  background: #A9611E;
+  border-color: #A9611E;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-soft);
+}
+.btn-ghost:hover {
+  color: var(--ink);
+  background: var(--paper-soft);
+}
+
 input[type="text"],
-input[type="email"],
-textarea {
-  font-family: var(--font-body);
+input[type="search"],
+textarea,
+select {
+  font-family: inherit;
   font-size: 1rem;
-  padding: var(--space-md);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-card);
-  color: var(--color-text);
-  transition: all 0.2s ease;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
   width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
 }
 
 textarea {
   resize: vertical;
   line-height: 1.8;
-  font-size: 1.1rem;
+  min-height: 120px;
 }
 
-/* 卡片样式 / Card styles */
-.card {
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  padding: var(--space-xl);
-  box-shadow: var(--shadow-md);
-  margin-bottom: var(--space-lg);
-}
-
-/* 标签样式 / Label styles */
 label {
   display: block;
+  font-size: 0.9rem;
   font-weight: 600;
-  margin-bottom: var(--space-xs);
-  color: var(--color-text);
+  color: var(--ink);
+  margin-bottom: var(--space-2);
 }
 
-/* 单选框美化 / Radio button styling */
-input[type="radio"] {
-  appearance: none;
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--color-border);
-  border-radius: 50%;
-  margin-right: var(--space-sm);
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-1);
 }
 
-input[type="radio"]:checked {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  background: var(--paper-soft);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
 }
 
-input[type="radio"]:checked::after {
-  content: '✓';
-  position: absolute;
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+.tag-accent {
+  background: var(--accent-wash);
+  color: var(--accent);
+  border-color: var(--accent-soft);
 }
 
-/* 复选框美化 / Checkbox styling */
-input[type="checkbox"] {
-  appearance: none;
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  margin-right: var(--space-sm);
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+.tag-amber {
+  background: var(--amber-wash);
+  color: var(--amber);
+  border-color: var(--amber-soft);
 }
 
-input[type="checkbox"]:checked {
-  border-color: var(--color-grass);
-  background: var(--color-grass);
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-soft);
 }
 
-input[type="checkbox"]:checked::after {
-  content: '✓';
-  position: absolute;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+.muted {
+  color: var(--ink-soft);
 }
 
-/* 动画效果 / Animations */
-@keyframes slideIn {
+.serif {
+  font-family: var(--font-serif);
+}
+
+/* 出现动画 */
+@keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+.fade-in {
+  animation: fadeUp 0.24s ease both;
+}
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
+/* 温和的脉动，供炼金釜 */
+@keyframes cauldronPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 122, 107, 0.28), var(--shadow-3);
   }
   50% {
-    opacity: 0.7;
+    box-shadow: 0 0 0 14px rgba(47, 122, 107, 0), var(--shadow-3);
   }
 }
 
-.animate-in {
-  animation: slideIn 0.3s ease;
+/* App 布局：左侧 sidebar + 主内容 */
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
 }
 
-/* 滚动条美化 / Scrollbar styling */
-::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+.app-main {
+  padding: var(--space-6) var(--space-8);
+  max-width: 1200px;
+  width: 100%;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--color-cloud);
-  border-radius: var(--radius-sm);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-soft);
-}
-
-/* 辅助类 / Utility classes */
-.emoji {
-  font-size: 1.5em;
-  margin-right: var(--space-xs);
-}
-
-.badge {
-  display: inline-block;
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--color-sunshine);
-  color: var(--color-text);
-  border-radius: var(--radius-full);
-  font-size: 0.875rem;
-  font-weight: 600;
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .app-main {
+    padding: var(--space-5);
+  }
 }

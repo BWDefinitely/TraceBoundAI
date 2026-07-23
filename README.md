@@ -1,246 +1,140 @@
-# Trace-Bound AI
+# Trace-Bound · 儿童写作工作室
 
-> A workspace where children collect *traces* (photo / sound / voice / text), reflect on
-> them, and write their own stories — with an AI that can only ever see traces the child
-> has explicitly selected and permitted.
->
-> 一个让孩子采集 *轨迹*(照片 / 声音 / 语音 / 文字)、进行反思并撰写自己故事的工作区。
-> AI 永远只能看到孩子**明确选择并授权**的轨迹。
+一个陪孩子把生活的碎片写成故事的本地工作室。UI 温暖克制，把"故事创作"作为主舞台，其他工具在需要的时候从侧边探出来，不打断正在进行的正文。
 
----
+## 三块主功能 + 完成后反思
 
-## ⚠️ Project status / 项目现状
+- **故事创作（主舞台）** — 主页面 `/write`。每篇故事自带"起承转合"故事线；正文自动保存；随时可以标记完成。
+- **素材采集与回顾（侧边抽屉）** — 从左侧或编辑器顶部按钮唤出。可以采集新素材，也可以回顾、编辑、收藏已有素材。**打开时不会替换正文页面**。当在故事编辑器里打开时，每张素材卡片会多一个"加到当前故事"按钮，点一下就把素材关联到当前故事。
+- **灵感炼金（侧边抽屉）** — 从左侧或编辑器顶部按钮唤出。大炼金釜 + 两个槽位，拖两份不同的素材进去，AI 给出一段联想火花。**在编辑器里打开时**，火花下方多一个"作为灵感放进正文"按钮，点一下把火花插入到正文末尾。
+- **反思回顾（完成之后）** — 在编辑器点"写完了 · 去反思"后跳转到 `/reflect?story=…`。选一个提示或自己写，写下这一次写作的感觉。已完成的故事会在故事列表里单独分组。
 
-**EN** — This repository currently contains the **domain logic, services, schemas, server
-actions, React components, and tests**. As of this version, it is a **runnable demo** with a
-**child-friendly, colorful interface**:
-
-- `npm run dev` starts a Next.js dev server that works **with or without a database**:
-  - **No `DATABASE_URL` set**: the app uses an in-memory backend seeded with demo data
-    (one child, one session, a story, and a few traces). Data resets on restart.
-  - **`DATABASE_URL` set**: the app connects to a real PostgreSQL database.
-- **Child-friendly UI**: warm colors, rounded corners, big emoji icons, clear labels in Chinese,
-  and inviting language designed for children.
-- **No real AI provider wired in** — the app uses a deterministic `MockAiClient`.
-- What runs today: **type checking, unit tests, Prisma client generation, and `npm run dev`.**
-
-**中文** — 本仓库目前包含**领域逻辑、服务、schema、server actions、React 组件和测试**。
-当前版本是一个**可运行的演示**,并配有**儿童友好的彩色界面**:
-
-- `npm run dev` 启动 Next.js 开发服务器,**有无数据库均可运行**:
-  - **未设置 `DATABASE_URL`**: 应用使用内存后端,预置演示数据(一个孩子、一个会话、一篇故事
-    和几个轨迹)。数据在重启时重置。
-  - **已设置 `DATABASE_URL`**: 应用连接到真实的 PostgreSQL 数据库。
-- **儿童友好界面**:温暖明亮的配色、圆润的形状、大号 emoji 图标、清晰的中文标签,
-  以及专为孩子设计的亲切语言。
-- **尚未接入任何真实 AI 服务** —— 当前使用确定性的 `MockAiClient`。
-- 目前真正可运行的是:**类型检查、单元测试、Prisma 客户端生成、以及 `npm run dev`。**
-
----
-
-## Quick start (no database needed) / 快速启动(无需数据库)
+## 快速开始
 
 ```bash
-# 1. Clone and install
-# 克隆并安装依赖
-git clone <repo-url>
-cd TraceBoundAI
 npm install
-
-# 2. Generate Prisma types (required even for in-memory mode)
-# 生成 Prisma 类型(即使使用内存模式也必需)
-npm run prisma:generate
-
-# 3. Start the dev server — works WITHOUT a database!
-# 启动开发服务器 —— 无需数据库即可运行!
 npm run dev
-# Open http://localhost:3000
 # 打开 http://localhost:3000
 ```
 
-**EN** — When `DATABASE_URL` is unset, the app uses an in-memory backend seeded with demo
-data. You'll see the Story Workspace, AI panel, and Source Reflection panel right away.
+首次保存时会自动创建 `~/TraceBound/` 目录，全部内容以纯文本方式落盘。
 
-**中文** — 当未设置 `DATABASE_URL` 时,应用使用内存后端,预置演示数据。你会立刻看到
-写作工作区、AI 面板和来源反思面板。
+## 数据存放位置
 
----
+默认写到用户家目录下：
 
-## Requirements / 环境要求
+```
+~/TraceBound/
+  materials/
+    index.json         素材元数据
+    <id>.txt           素材正文
+  stories/
+    index.json         故事元数据（含起承转合 + completedAt）
+    <id>.txt           故事正文
+  alchemy/
+    index.json         炼金记录（两素材 + AI 联想）
+  reflections/
+    index.json         反思记录
+```
 
-- **Node.js** 18.18+ (recommend 20+) / Node.js 18.18 以上(建议 20+)
-- **npm** (a `package-lock.json` is committed) / npm(仓库已提交 `package-lock.json`)
-- **PostgreSQL** 13+ — **optional**; only required if you want persistent data. The app runs
-  DB-free in demo mode by default. / PostgreSQL 13 以上 —— **可选**;仅当你需要持久化数据
-  时才必需。应用默认以无数据库演示模式运行。
-
----
-
-## 1. Install dependencies / 安装依赖
+想换位置：
 
 ```bash
-npm install
+# .env.local
+TRACEBOUND_HOME="D:/我的写作/TraceBound"
 ```
 
----
+所有写入走 **临时文件 + rename** 的原子写，孩子的资料不会因中途关掉而损坏。
 
-## 2. Configure environment variables (optional) / 配置环境变量(可选)
+## AI 接入
 
-**EN** — You can run `npm run dev` **right now without any `.env` file** — the app will use
-an in-memory backend. If you want persistent data or to explore with a real database, create
-a `.env` file:
+通过 `AI_PROVIDER` 环境变量选提供商。**默认是本地模拟**——不配任何 key 也能看到效果。
 
-**中文** — 你可以**立刻运行 `npm run dev` 而无需任何 `.env` 文件** —— 应用会使用内存后端。
-如果你想要持久化数据或使用真实数据库,再创建 `.env` 文件:
-
-```dotenv
-# .env
-
-# OPTIONAL — PostgreSQL connection string. If omitted, the app uses in-memory demo data.
-# 可选 —— PostgreSQL 连接串。省略时,应用使用内存演示数据。
-DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/tracebound?schema=public"
-
-# OPTIONAL — where uploaded media files are stored on the server.
-# Defaults to ./.storage/traces if omitted. This path is NEVER exposed to the browser.
-# 可选 —— 服务器上媒体文件的存储目录。省略时默认为 ./.storage/traces。
-# 该路径永远不会暴露给浏览器。
-# TRACE_STORAGE_ROOT="/var/lib/tracebound/traces"
-```
-
-Replace `USER` / `PASSWORD` / `localhost:5432` / `tracebound` with your own database
-credentials. / 请把 `USER` / `PASSWORD` / `localhost:5432` / `tracebound` 换成你自己的
-数据库凭据。
-
-### About the AI API key / 关于 AI 的 API Key
-
-**EN** — Right now there is **no API key to configure**, because no external model is
-called. The AI boundary is defined by the `AiClient` interface in
-[`src/ai/aiClient.ts`](src/ai/aiClient.ts), and the app is wired to `MockAiClient` in
-[`src/app/ai/actions.ts`](src/app/ai/actions.ts). When you are ready to connect a real
-provider (e.g. Anthropic Claude), you will:
-
-1. Add your key to `.env`, e.g. `ANTHROPIC_API_KEY="sk-ant-..."`.
-2. Implement a new class that satisfies `AiClient` (its `complete()` calls the provider and
-   returns raw JSON — the service validates it against `AiResponseSchema`).
-3. Swap `new MockAiClient()` for your class in `src/app/ai/actions.ts`. **Nothing else
-   changes** — the `TraceAccessPolicy` gate and response validation stay intact.
-
-**中文** — 目前**没有需要配置的 API Key**,因为尚未调用任何外部模型。AI 的边界由
-[`src/ai/aiClient.ts`](src/ai/aiClient.ts) 中的 `AiClient` 接口定义,应用在
-[`src/app/ai/actions.ts`](src/app/ai/actions.ts) 中接线到 `MockAiClient`。当你要接入真实
-服务(例如 Anthropic Claude)时:
-
-1. 把 key 加入 `.env`,例如 `ANTHROPIC_API_KEY="sk-ant-..."`。
-2. 实现一个满足 `AiClient` 接口的新类(其 `complete()` 调用服务商并返回原始 JSON,
-   服务层会用 `AiResponseSchema` 校验)。
-3. 在 `src/app/ai/actions.ts` 中把 `new MockAiClient()` 换成你的类。**其余无需改动** ——
-   `TraceAccessPolicy` 门禁与响应校验保持不变。
-
-> ⚠️ Never send original media files to the AI. The prompt is built from **textual metadata
-> only**. Keep this invariant when implementing a real client.
-> 切勿把原始媒体文件发送给 AI。提示词仅由**文本元数据**构成,实现真实客户端时请保持此不变量。
-
----
-
-## 3. Set up the database (optional) / 初始化数据库(可选)
+### 官方 Claude
 
 ```bash
-# Generate the Prisma client from prisma/schema.prisma (REQUIRED even without a DB)
-# 依据 prisma/schema.prisma 生成 Prisma 客户端(即使不用数据库也必需)
-npm run prisma:generate
-
-# Create the tables in your database (only if you set DATABASE_URL)
-# 在数据库中创建数据表(仅当你设置了 DATABASE_URL 时)
-npx prisma migrate dev --name init
+# .env.local
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-opus-4-8         # 可选，默认 claude-opus-4-8
+ANTHROPIC_BASE_URL=https://...          # 可选，走代理
 ```
 
-**EN** — If you skip `.env` and `migrate`, the app will use an in-memory backend with demo
-data. You **must** still run `prisma:generate` so the `@prisma/client` types exist (even
-though the runtime won't connect to a real database).
+### 第三方 OpenAI 兼容接口
 
-**中文** — 如果你跳过 `.env` 和 `migrate`,应用会使用内存后端的演示数据。但你**仍必须**
-运行 `prisma:generate`,以便生成 `@prisma/client` 类型(即使运行时不会连接真实数据库)。
-
----
-
-## 4. Verify the project / 校验项目
-
-These are the commands that work today and are the recommended way to confirm your setup.
-/ 以下命令目前均可运行,是确认环境是否就绪的推荐方式。
+任何遵守 `POST /v1/chat/completions` 协议的服务都能直接用，包括 OpenAI 官方、Kimi、DeepSeek、智谱 GLM、通义千问、本地 Ollama 等：
 
 ```bash
-# Type check — should exit cleanly
-# 类型检查 —— 应无错误退出
-npm run typecheck
-
-# Unit tests — 62 tests across 6 files
-# 单元测试 —— 6 个文件共 62 个测试
-npm test
+# .env.local
+AI_PROVIDER=openai-compat
+AI_BASE_URL=https://api.openai.com/v1
+AI_API_KEY=sk-...
+AI_MODEL=gpt-4o-mini
 ```
 
-Expected test result / 预期测试结果:
+几个常见配置：
 
-```
-Test Files  6 passed (6)
-     Tests  62 passed (62)
-```
+| 提供商           | AI_BASE_URL                                          | AI_MODEL 示例             |
+| ---------------- | ---------------------------------------------------- | ------------------------- |
+| OpenAI           | `https://api.openai.com/v1`                          | `gpt-4o-mini`             |
+| DeepSeek         | `https://api.deepseek.com/v1`                        | `deepseek-chat`           |
+| Kimi（Moonshot） | `https://api.moonshot.cn/v1`                         | `moonshot-v1-8k`          |
+| 智谱 GLM         | `https://open.bigmodel.cn/api/paas/v4`               | `glm-4-flash`             |
+| 通义千问         | `https://dashscope.aliyuncs.com/compatible-mode/v1`  | `qwen-turbo`              |
+| Ollama 本地      | `http://localhost:11434/v1`                          | `llama3.1`                |
 
----
-
-## 5. Run the dev server / 启动开发服务器
+### 强制走模拟
 
 ```bash
-npm run dev
+AI_PROVIDER=mock
 ```
 
-**EN** — The dev server starts on `http://localhost:3000`. The experience depends on
-whether you set `DATABASE_URL`:
+无论调用失败还是模拟，UI 都会正常返回一段联想，不会卡住孩子的写作节奏。首页与炼金抽屉都会显示当前生效的引擎名字，方便家长确认。
 
-- **Without `DATABASE_URL`** (default): you see a fully working demo with one child, one
-  session, a story, and a few traces. The Story Workspace, AI panel (using `MockAiClient`),
-  and Source Reflection panel are all rendered and interactive. Data resets on restart.
-- **With `DATABASE_URL`**: the app connects to your PostgreSQL database. You'll need to
-  create a child/session/story manually (or via Prisma Studio: `npx prisma studio`).
+## 技术栈
 
-**中文** — 开发服务器启动在 `http://localhost:3000`。体验取决于你是否设置了 `DATABASE_URL`:
+- Next.js 15 App Router + React 19（Server Components + Server Actions）
+- TypeScript strict
+- `@anthropic-ai/sdk`（Anthropic 分支），第三方走原生 `fetch`
+- 数据层：[src/lib/store.ts](src/lib/store.ts) — 纯 `node:fs` 读写 txt + json
+- AI 层：[src/lib/ai.ts](src/lib/ai.ts) — 支持三种 provider
+- 无数据库、无 ORM、无第三方 UI 库
 
-- **未设置 `DATABASE_URL`**(默认):你会看到一个完整可用的演示,包含一个孩子、一个会话、
-  一篇故事和几个轨迹。写作工作区、AI 面板(使用 `MockAiClient`)和来源反思面板全部渲染
-  并可交互。数据在重启时重置。
-- **已设置 `DATABASE_URL`**:应用连接你的 PostgreSQL 数据库。你需要手动创建孩子/会话/故事
-  (或通过 Prisma Studio:`npx prisma studio`)。
+## 目录一览
 
----
+```
+src/
+  lib/
+    store.ts             本地文件存储
+    ai.ts                多 provider AI 客户端（mock / anthropic / openai-compat）
+    types.ts             共享类型
+  app/
+    _actions.ts          共享 server actions
+    _components/
+      AppShell.tsx       客户端 shell + 抽屉上下文
+      Sidebar.tsx        左侧导航（含抽屉触发）
+      Drawer.tsx         通用右侧抽屉壳
+      MaterialsDrawer.tsx  素材采集与回顾抽屉
+      AlchemyDrawer.tsx    灵感炼金抽屉（拖拽 + 大炼金釜）
+      HomeShortcuts.tsx    首页快捷入口
+      PageHeader.tsx       页头
+    layout.tsx           全局布局（把数据喂给 AppShell）
+    globals.css          全局设计 tokens
+    page.tsx             首页
+    write/               故事创作（主舞台）
+      page.tsx             故事列表（进行中 / 已完成）
+      [id]/
+        page.tsx           故事编辑器路由
+        StoryEditor.tsx    编辑器（起承转合 + 关联素材 + 完成按钮）
+      ClientBits.tsx     新建 / 删除 / 重开按钮
+    reflect/             反思回顾
+      page.tsx
+      ReflectForm.tsx
+```
 
-## Project layout / 项目结构
+## 校验命令
 
-| Path / 路径 | Purpose / 用途 |
-| --- | --- |
-| `prisma/schema.prisma` | Data model / 数据模型 |
-| `src/policy/` | `TraceAccessPolicy` — the single server-side AI access gate / 唯一的服务端 AI 访问门禁 |
-| `src/capture/` | Field Capture: create traces, validate uploads / 采集轨迹、校验上传 |
-| `src/library/` | My World Library: edit / delete / hide / permissions / 编辑、删除、隐藏、权限 |
-| `src/bridge/` | Trace-to-Story Bridge: four separate fields + mock scaffold / 四个独立字段 + 模拟脚手架 |
-| `src/ai/` | Trace-Bound AI service + client interface / AI 服务与客户端接口 |
-| `src/story/` | Story Workspace + Source Reflection / 写作工作区与来源反思 |
-| `src/app/**/actions.ts` | Server actions (`"use server"`) / 服务端动作 |
-| `src/app/**/*.tsx` | React components (not yet mounted to pages) / React 组件(尚未挂载到页面) |
-| `tests/` | Vitest unit tests (in-memory Prisma fake) / Vitest 单元测试(内存 Prisma 假实现) |
-
----
-
-## Security invariants / 安全不变量
-
-- **EN** — No trace reaches the AI unless it belongs to the active session, `aiAccessAllowed`
-  is true, it is not deleted, and the child explicitly selected it. The policy is
-  fail-closed. Original media files are never sent to the AI. AI suggestions never enter the
-  story editor automatically.
-- **中文** —— 只有当轨迹属于当前会话、`aiAccessAllowed` 为真、未被删除、且孩子明确选择时,
-  才会被送入 AI。该策略为“默认拒绝(fail-closed)”。原始媒体文件绝不发送给 AI。AI 的建议
-  绝不会自动进入故事编辑器。
-
-> **Known limitation / 已知限制:** authentication is not wired yet — `childId` is currently
-> supplied by the caller. Do not deploy to real users before adding an auth layer that
-> derives `childId` server-side. / 尚未接入鉴权 —— `childId` 目前由调用方传入。在补上从服务端
-> 推导 `childId` 的鉴权层之前,请勿部署给真实用户。
-
+```bash
+npm run typecheck    # 严格类型检查
+npm run build        # Next.js 生产构建
+```

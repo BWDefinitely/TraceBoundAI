@@ -17,8 +17,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "types": [
-      "node",
-      "vitest/globals"
+      "node"
     ],
     "allowJs": true,
     "incremental": true,
@@ -31,7 +30,6 @@
   "include": [
     "*.ts",
     "src",
-    "tests",
     ".next/types/**/*.ts"
   ],
   "exclude": [

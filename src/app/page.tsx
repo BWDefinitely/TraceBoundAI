@@ -1,127 +1,168 @@
-import { prisma } from "../lib/prisma";
-import { getStory } from "../story/storyService";
-import { StoryWorkspace } from "./story/StoryWorkspace";
+import Link from "next/link";
+import { listAlchemy, listMaterials, listReflections, listStories, homeRoot } from "../lib/store";
+import { currentModelLabel, currentProvider } from "../lib/ai";
+import { HomeShortcuts } from "./_components/HomeShortcuts";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const usingMemoryDb = !process.env.DATABASE_URL;
-
-  let story = null;
-  try {
-    story = await getStory(prisma, "story-1");
-  } catch {
-    story = null;
-  }
+  const [materials, stories, alchemy, reflections] = await Promise.all([
+    listMaterials(),
+    listStories(),
+    listAlchemy(),
+    listReflections(),
+  ]);
+  const active = stories.filter((s) => !s.completedAt);
+  const done = stories.filter((s) => s.completedAt);
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      {/* 顶部标题栏 / Header */}
-      <header
-        style={{
-          background: "linear-gradient(135deg, var(--color-ocean) 0%, var(--color-sky) 100%)",
-          color: "white",
-          padding: "var(--space-xl)",
-          textAlign: "center",
-          boxShadow: "var(--shadow-lg)",
-        }}
-      >
-        <h1
+    <div className="fade-in">
+      <header style={{ marginBottom: "var(--space-8)" }}>
+        <div
           style={{
-            fontSize: "2.5rem",
-            fontFamily: "var(--font-display)",
-            marginBottom: "var(--space-sm)",
+            fontSize: "0.75rem",
+            letterSpacing: "0.14em",
+            fontWeight: 700,
+            color: "var(--accent)",
+            textTransform: "uppercase",
+            marginBottom: "var(--space-2)",
           }}
         >
-          <span className="emoji" style={{ fontSize: "3rem" }}>
-            📖
-          </span>{" "}
-          我的轨迹故事
+          写作工作室
+        </div>
+        <h1 style={{ fontSize: "2.4rem", marginBottom: "var(--space-3)" }}>
+          今天，我们想写一点什么？
         </h1>
-        <p style={{ fontSize: "1.2rem", opacity: 0.95 }}>
-          收集你的轨迹,反思你的想法,写下属于你自己的故事
+        <p className="muted" style={{ maxWidth: 640, fontSize: "1.05rem", lineHeight: 1.8 }}>
+          「故事创作」是主舞台。写到需要的时候，从左侧唤出「素材」或「灵感炼金」抽屉——它们不会打断你正在写的故事。
+          写完之后，再回到「反思回顾」慢慢回望。
         </p>
       </header>
 
-      {/* 演示模式提示 / Demo mode banner */}
-      {usingMemoryDb && (
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: "var(--space-4)",
+          marginBottom: "var(--space-8)",
+        }}
+      >
+        <Stat label="素材" value={materials.length} unit="份" />
+        <Stat label="进行中的故事" value={active.length} unit="篇" />
+        <Stat label="炼金记录" value={alchemy.length} unit="次" />
+        <Stat label="已完成 & 反思" value={done.length + reflections.length} unit="项" />
+      </section>
+
+      <HomeShortcuts />
+
+      <section style={{ marginTop: "var(--space-8)" }}>
         <div
           style={{
-            maxWidth: "1200px",
-            margin: "var(--space-lg) auto",
-            padding: "0 var(--space-lg)",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            marginBottom: "var(--space-4)",
           }}
         >
-          <div
-            className="card animate-in"
-            style={{
-              background: "linear-gradient(135deg, #FFF9E6 0%, #FFE8D6 100%)",
-              borderLeft: "4px solid var(--color-sunshine)",
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-md)",
-            }}
-          >
-            <span className="emoji" style={{ fontSize: "2rem" }}>
-              🎮
-            </span>
-            <div>
-              <p style={{ fontWeight: "600", marginBottom: "var(--space-xs)" }}>
-                现在是<strong>演示模式</strong>
-              </p>
-              <p style={{ fontSize: "0.95rem", color: "var(--color-text-soft)" }}>
-                你看到的数据存在电脑的内存里,关闭浏览器后会重置。AI 使用的是模拟回复,不会连接真实的 AI 服务。
-              </p>
-            </div>
-          </div>
+          <h2 style={{ fontSize: "1.2rem", margin: 0 }}>进行中的故事</h2>
+          <Link href="/write" style={{ fontSize: "0.9rem" }}>
+            全部故事 →
+          </Link>
         </div>
-      )}
-
-      {/* 主内容 / Main content */}
-      <main>
-        {story ? (
-          <StoryWorkspace
-            childId="child-1"
-            story={story}
-            selectedTraceIds={["trace-photo-1", "trace-text-1"]}
-          />
+        {active.length === 0 ? (
+          <div className="card" style={{ padding: "var(--space-5)" }}>
+            <p className="muted">还没有进行中的故事。到「故事创作」开一个新故事吧。</p>
+          </div>
         ) : (
           <div
             style={{
-              maxWidth: "600px",
-              margin: "var(--space-2xl) auto",
-              padding: "var(--space-lg)",
-              textAlign: "center",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "var(--space-4)",
             }}
           >
-            <div className="card">
-              <p style={{ fontSize: "3rem", marginBottom: "var(--space-md)" }}>
-                📝
-              </p>
-              <h2 style={{ marginBottom: "var(--space-md)" }}>还没有故事</h2>
-              <p style={{ color: "var(--color-text-soft)", lineHeight: "1.6" }}>
-                如果你配置了真实的数据库(<code>DATABASE_URL</code>),请先运行数据库迁移并创建一个故事。
-              </p>
-            </div>
+            {active.slice(0, 6).map((s) => (
+              <Link
+                key={s.id}
+                href={`/write/${s.id}`}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "var(--space-2)",
+                  padding: "var(--space-4)",
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--radius-lg)",
+                  color: "var(--ink)",
+                  textDecoration: "none",
+                  boxShadow: "var(--shadow-1)",
+                }}
+              >
+                <span className="tag tag-accent">故事</span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize: "1.1rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  {s.title}
+                </span>
+                <span style={{ fontSize: "0.8rem", color: "var(--ink-soft)" }}>
+                  更新于 {new Date(s.updatedAt).toLocaleDateString("zh-CN")}
+                </span>
+              </Link>
+            ))}
           </div>
         )}
-      </main>
+      </section>
 
-      {/* 页脚 / Footer */}
-      <footer
+      <section
+        className="card"
         style={{
-          marginTop: "var(--space-2xl)",
-          padding: "var(--space-xl)",
-          textAlign: "center",
-          color: "var(--color-text-soft)",
-          fontSize: "0.9rem",
+          marginTop: "var(--space-8)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "var(--space-4)",
         }}
       >
-        <p>
-          <span className="emoji">🌟</span>
-          记住:这是<strong>你的</strong>故事,没有对错。
-        </p>
-      </footer>
+        <div>
+          <div style={{ fontSize: "0.85rem", color: "var(--ink-soft)", marginBottom: "var(--space-1)" }}>
+            数据存放
+          </div>
+          <div style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>{homeRoot()}</div>
+        </div>
+        <div style={{ fontSize: "0.85rem", color: "var(--ink-soft)" }}>
+          AI 引擎：
+          <strong style={{ color: "var(--ink)", marginLeft: 4 }}>{currentProvider()}</strong>
+          <span className="muted" style={{ marginLeft: 6 }}>· {currentModelLabel()}</span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function Stat({ label, value, unit }: { label: string; value: number; unit: string }) {
+  return (
+    <div className="card" style={{ padding: "var(--space-4)" }}>
+      <div style={{ fontSize: "0.85rem", color: "var(--ink-soft)", marginBottom: "var(--space-2)" }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+        <span
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontSize: "2rem",
+            fontWeight: 700,
+            color: "var(--ink)",
+          }}
+        >
+          {value}
+        </span>
+        <span style={{ color: "var(--ink-soft)", fontSize: "0.85rem" }}>{unit}</span>
+      </div>
     </div>
   );
 }

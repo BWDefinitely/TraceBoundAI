@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Read(//c/Users/11839/**)",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs -r kill)",
+      "Bash(cd d:/Work/TraceBound/TraceBoundAI && rm -rf src/app/capture src/app/review src/app/alchemy src/app/write/actions.ts src/app/write/ClientBits.tsx src/app/reflect/actions.ts src/app/reflect/ReflectForm.tsx src/app/write/\\\\[id\\\\]/StoryEditor.tsx && ls src/app/)"
+    ],
+    "additionalDirectories": [
+      "d:\\Work\\TraceBound\\TraceBoundAI\\src\\app\\write\\[id]"
+    ]
+  }
+}
