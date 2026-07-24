@@ -1,7 +1,36 @@
+# dependencies
 node_modules/
+
+# next.js build output
 .next/
+out/
+
+# production build
+build/
+dist/
+
+# logs
 *.log
+npm-debug.log*
+
+# env / secrets
 .env
 .env.local
 .env.*.local
+
+# typescript incremental build info
+*.tsbuildinfo
 tsconfig.tsbuildinfo
+next-env.d.ts
+
+# editor / tooling local config
+.vscode/
+.idea/
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# app runtime data (local content store)
+/TraceBound/
