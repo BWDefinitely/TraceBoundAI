@@ -7,10 +7,26 @@
       "Read(//c/Users/11839/**)",
       "Bash(awk '{print $2}')",
       "Bash(xargs -r kill)",
-      "Bash(cd d:/Work/TraceBound/TraceBoundAI && rm -rf src/app/capture src/app/review src/app/alchemy src/app/write/actions.ts src/app/write/ClientBits.tsx src/app/reflect/actions.ts src/app/reflect/ReflectForm.tsx src/app/write/\\\\[id\\\\]/StoryEditor.tsx && ls src/app/)"
+      "Bash(cd d:/Work/TraceBound/TraceBoundAI && rm -rf src/app/capture src/app/review src/app/alchemy src/app/write/actions.ts src/app/write/ClientBits.tsx src/app/reflect/actions.ts src/app/reflect/ReflectForm.tsx src/app/write/\\\\[id\\\\]/StoryEditor.tsx && ls src/app/)",
+      "Bash(python -c ' *)",
+      "Read(//tmp/**)",
+      "Bash(cp /tmp/req.txt d:/Work/TraceBound/TraceBoundAI/.req.txt && ls -la d:/Work/TraceBound/TraceBoundAI/.req.txt)",
+      "Bash(rm -rf .next)",
+      "Bash(cp \"c:/Users/11839/Desktop/新建文件夹/微信图片_20260725194516_83_4047.png\" /tmp/ref1.png)",
+      "Bash(cp \"c:/Users/11839/Desktop/新建文件夹/微信图片_20260725194522_84_4047.png\" /tmp/ref2.png)",
+      "Bash(cp \"c:/Users/11839/Desktop/新建文件夹/微信图片_20260725194546_87_4047.png\" /tmp/ref3.png)",
+      "Bash(cp \"c:/Users/11839/Desktop/新建文件夹/微信图片_20260725194603_88_4047.png\" /tmp/ref4.png)",
+      "Bash(cp \"c:/Users/11839/Desktop/新建文件夹/微信图片_20260725194617_89_4047.png\" /tmp/ref5.png)",
+      "Read(//tmp/design_docx/**)",
+      "Bash(mkdir -p /tmp)",
+      "Bash(cp /tmp/design_text.txt \"d:/Work/TraceBound/TraceBoundAI/.design_extracted.txt\" && wc -l \"d:/Work/TraceBound/TraceBoundAI/.design_extracted.txt\")",
+      "Bash(pip install *)",
+      "Bash(npm run *)",
+      "Bash(echo \"exit=$?\")"
     ],
     "additionalDirectories": [
-      "d:\\Work\\TraceBound\\TraceBoundAI\\src\\app\\write\\[id]"
+      "d:\\Work\\TraceBound\\TraceBoundAI\\src\\app\\write\\[id]",
+      "\\tmp"
     ]
   }
 }

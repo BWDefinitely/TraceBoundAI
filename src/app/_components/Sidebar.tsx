@@ -8,15 +8,16 @@ export function Sidebar() {
   const pathname = usePathname();
   const { open, openDrawer } = useDrawers();
 
-  const drawerActive = (k: "materials" | "alchemy") => open === k;
+  const drawerActive = (k: "materials" | "alchemy" | "settings") => open === k;
   const routeActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
     <aside
       style={{
-        borderRight: "1px solid var(--line)",
-        background: "var(--paper-soft)",
+        borderRight: "1px solid var(--line-soft)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.45) 100%)",
+        backdropFilter: "blur(6px)",
         padding: "var(--space-6) var(--space-4)",
         display: "flex",
         flexDirection: "column",
@@ -30,27 +31,48 @@ export function Sidebar() {
       <Link
         href="/"
         style={{
-          fontFamily: "var(--font-serif)",
-          fontSize: "1.2rem",
-          fontWeight: 700,
+          fontFamily: "var(--font-round)",
+          fontSize: "1.25rem",
+          fontWeight: 900,
           color: "var(--ink)",
           textDecoration: "none",
           display: "flex",
-          alignItems: "baseline",
-          gap: "0.4rem",
+          alignItems: "center",
+          gap: "0.5rem",
           padding: "0 var(--space-2)",
         }}
       >
-        <span style={{ color: "var(--accent)", fontSize: "1.4rem" }}>❋</span>
+        <span
+          style={{
+            display: "inline-grid",
+            placeItems: "center",
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            background: "linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)",
+            color: "white",
+            fontSize: "1.1rem",
+            boxShadow: "var(--shadow-btn)",
+          }}
+        >
+          ✦
+        </span>
         Trace-Bound
       </Link>
 
       <nav style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
         <NavSection title="写作工作台">
           <NavLink
+            href="/outdoor"
+            active={routeActive("/outdoor")}
+            index={1}
+            label="户外任务"
+            hint="跟机器人去慢观察"
+          />
+          <NavLink
             href="/write"
             active={routeActive("/write")}
-            index={1}
+            index={2}
             label="故事创作"
             hint="主舞台：故事线与正文"
             variant="primary"
@@ -71,7 +93,6 @@ export function Sidebar() {
             index="✦"
             label="灵感炼金"
             hint="两份素材 → 一段联想"
-            variant="amber"
           />
         </NavSection>
 
@@ -79,14 +100,21 @@ export function Sidebar() {
           <NavLink
             href="/reflect"
             active={routeActive("/reflect")}
-            index={2}
+            index={3}
             label="反思回顾"
             hint="回望这次写作旅程"
           />
         </NavSection>
       </nav>
 
-      <div style={{ marginTop: "auto", padding: "0 var(--space-2)" }}>
+      <div style={{ marginTop: "auto", padding: "0 var(--space-2)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <DrawerButton
+          active={drawerActive("settings")}
+          onClick={() => openDrawer("settings")}
+          index="⚙"
+          label="AI 设置"
+          hint="切换引擎、填 API Key"
+        />
         <div
           style={{
             fontSize: "0.75rem",
@@ -173,16 +201,14 @@ function DrawerButton({
   index,
   label,
   hint,
-  variant = "default",
 }: {
   active: boolean;
   onClick: () => void;
   index: string;
   label: string;
   hint: string;
-  variant?: "default" | "amber";
 }) {
-  const color = variant === "amber" ? "var(--amber)" : "var(--accent)";
+  const color = "var(--accent)";
   return (
     <button
       onClick={onClick}
@@ -217,17 +243,18 @@ function Chip({ active, color, children }: { active: boolean; color: string; chi
     <span
       aria-hidden
       style={{
-        width: 28,
-        height: 28,
-        borderRadius: "50%",
-        background: active ? color : "var(--paper)",
+        width: 30,
+        height: 30,
+        borderRadius: 10,
+        background: active ? color : "white",
         color: active ? "white" : "var(--ink-soft)",
-        fontFamily: "var(--font-serif)",
-        fontSize: "0.85rem",
-        fontWeight: 700,
+        fontFamily: "var(--font-round)",
+        fontSize: "0.9rem",
+        fontWeight: 800,
         display: "grid",
         placeItems: "center",
         border: active ? "none" : "1px solid var(--line)",
+        boxShadow: active ? "var(--shadow-btn)" : "none",
       }}
     >
       {children}

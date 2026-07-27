@@ -1,25 +1,54 @@
-/* Trace-Bound 全局样式：纸张感 + 单一强调色 + 高对比可读性 */
+/* Trace-Bound 全局样式 · 儿童插画风
+ * 参考视觉：明亮天空蓝底 + 大圆角白卡 + 紫色主色 + 分类饱和色
+ */
 
 :root {
-  /* 纸张与墨水 */
+  /* 页面背景（天空蓝 → 奶油） */
+  --sky: #E8F2FE;
+  --sky-soft: #F3F7FD;
+  --sky-deep: #C9DEF9;
   --paper: #FBF7EE;
-  --paper-soft: #F4EEDF;
-  --card: #FFFDF7;
-  --ink: #2A2A33;
-  --ink-soft: #6B6B76;
-  --line: #E7DFCB;
+  --paper-soft: #FFF7E4;
 
-  /* 强调色（薄荷 → 琥珀） */
-  --accent: #2F7A6B;
-  --accent-soft: #B4DDD1;
-  --accent-wash: #E4F1EC;
-  --amber: #C97A2B;
-  --amber-soft: #F1D6A9;
-  --amber-wash: #FBEFD6;
+  /* 墨水 */
+  --card: #FFFFFF;
+  --ink: #2B2540;
+  --ink-soft: #6E6885;
+  --line: #E7E1F0;
+  --line-soft: #F1EDF7;
+
+  /* 主色：紫色 —— 所有主要 CTA / 图标底纹 */
+  --accent: #7C63E7;
+  --accent-2: #6A4EE0;
+  --accent-soft: #C9BEF5;
+  --accent-wash: #EFEBFE;
+
+  /* 分类色（按图中一致的映射） */
+  --green: #4CAF7A;
+  --green-soft: #B0E0C5;
+  --green-wash: #E4F6EC;
+
+  --amber: #F5A623;
+  --amber-soft: #FCD79A;
+  --amber-wash: #FFF3DC;
+
+  --blue: #4A90E2;
+  --blue-soft: #B7D5F6;
+  --blue-wash: #E4F0FC;
+
+  --rose: #EA5A7C;
+  --rose-soft: #F6B8C7;
+  --rose-wash: #FCE4EB;
 
   /* 状态色 */
-  --danger: #B8442B;
-  --danger-wash: #F6DED4;
+  --danger: #E7574C;
+  --danger-wash: #FCE4E2;
+
+  /* 类别 → 颜色（照片/声音/语音/视频） */
+  --cat-photo: var(--accent);
+  --cat-audio: var(--green);
+  --cat-voice: var(--amber);
+  --cat-video: var(--blue);
 
   /* 版式尺度 */
   --space-1: 0.25rem;
@@ -30,17 +59,21 @@
   --space-6: 2rem;
   --space-8: 3rem;
 
-  --radius-sm: 8px;
-  --radius: 14px;
-  --radius-lg: 20px;
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
   --radius-pill: 999px;
 
-  --shadow-1: 0 1px 2px rgba(31, 20, 8, 0.05), 0 2px 8px rgba(31, 20, 8, 0.04);
-  --shadow-2: 0 4px 20px rgba(31, 20, 8, 0.08);
-  --shadow-3: 0 12px 40px rgba(31, 20, 8, 0.12);
+  /* 阴影 —— 更"浮起来"的效果 */
+  --shadow-1: 0 2px 6px rgba(60, 40, 100, 0.06), 0 4px 16px rgba(60, 40, 100, 0.05);
+  --shadow-2: 0 6px 20px rgba(60, 40, 100, 0.10), 0 12px 32px rgba(60, 40, 100, 0.06);
+  --shadow-3: 0 16px 44px rgba(60, 40, 100, 0.16);
+  --shadow-btn: 0 4px 12px rgba(124, 99, 231, 0.28);
 
-  --font-sans: "Nunito", "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Nunito", "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", "HarmonyOS Sans SC", sans-serif;
   --font-serif: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --font-round: "Nunito", "PingFang SC", "Microsoft YaHei", "HarmonyOS Sans SC Rounded", -apple-system, sans-serif;
 }
 
 * {
@@ -55,43 +88,50 @@ body {
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-round);
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--ink);
-  background: var(--paper);
+  background:
+    radial-gradient(1200px 500px at 15% -10%, rgba(124, 99, 231, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 90% -5%, rgba(74, 144, 226, 0.12), transparent 60%),
+    linear-gradient(180deg, var(--sky) 0%, var(--sky-soft) 40%, var(--paper) 100%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 全局背景纸纹（很轻） */
+/* 页面上的漂浮云 / 星点装饰（很轻） */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image: radial-gradient(rgba(90, 60, 20, 0.03) 1px, transparent 1px);
-  background-size: 12px 12px;
+  background-image:
+    radial-gradient(circle at 8% 12%, rgba(255, 255, 255, 0.75) 12px, transparent 13px),
+    radial-gradient(circle at 92% 6%, rgba(255, 255, 255, 0.60) 20px, transparent 21px),
+    radial-gradient(circle at 12% 88%, rgba(255, 236, 200, 0.55) 18px, transparent 19px);
   z-index: 0;
 }
 
-/* 标题：中文用衬线，情绪更稳 */
+/* 标题：更粗更圆的字重 —— 参考图里的儿童海报感 */
 h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  line-height: 1.25;
+  font-family: var(--font-round);
+  font-weight: 800;
+  line-height: 1.22;
   color: var(--ink);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
 }
 
 h1 {
-  font-size: 2rem;
+  font-size: 2.1rem;
+  font-weight: 900;
 }
 h2 {
-  font-size: 1.5rem;
+  font-size: 1.55rem;
 }
 h3 {
   font-size: 1.2rem;
@@ -103,81 +143,108 @@ h4 {
 a {
   color: var(--accent);
   text-decoration: none;
+  font-weight: 600;
 }
 a:hover {
   text-decoration: underline;
 }
 
+/* 按钮：胶囊形，实心，带浮起阴影 */
 button {
   font-family: inherit;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
   background: var(--card);
   border: 1px solid var(--line);
-  padding: 0.55rem 1rem;
+  padding: 0.6rem 1.15rem;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
-    border-color 0.12s ease, color 0.12s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease, color 0.15s ease, filter 0.15s ease;
+  box-shadow: var(--shadow-1);
 }
 button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-1);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-2);
 }
 button:active {
   transform: translateY(0);
+  filter: brightness(0.96);
 }
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+  filter: grayscale(0.4);
 }
 
+/* 主按钮：紫色渐变，白字 */
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
   color: white;
-  border-color: var(--accent);
+  border-color: transparent;
+  box-shadow: var(--shadow-btn);
 }
 .btn-primary:hover {
-  background: #26685B;
-  border-color: #26685B;
+  filter: brightness(1.05);
 }
 
+/* 琥珀按钮：橙色渐变 */
 .btn-amber {
-  background: var(--amber);
+  background: linear-gradient(135deg, #FFB84C 0%, var(--amber) 100%);
   color: white;
-  border-color: var(--amber);
-}
-.btn-amber:hover {
-  background: #A9611E;
-  border-color: #A9611E;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(245, 166, 35, 0.30);
 }
 
+/* 绿色按钮：确认、带入故事 */
+.btn-green {
+  background: linear-gradient(135deg, #60C08C 0%, var(--green) 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(76, 175, 122, 0.30);
+}
+
+/* 蓝色按钮：次要操作、保存 */
+.btn-blue {
+  background: linear-gradient(135deg, #6BA9EA 0%, var(--blue) 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.28);
+}
+
+/* Ghost 幽灵按钮：透明底，用于次要动作 */
 .btn-ghost {
   background: transparent;
   border-color: transparent;
   color: var(--ink-soft);
+  box-shadow: none;
 }
 .btn-ghost:hover {
   color: var(--ink);
-  background: var(--paper-soft);
+  background: var(--sky-soft);
+  box-shadow: none;
+  transform: none;
 }
 
+/* 输入框：白底大圆角 */
 input[type="text"],
 input[type="search"],
+input[type="number"],
+input[type="email"],
 textarea,
 select {
   font-family: inherit;
   font-size: 1rem;
   color: var(--ink);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius);
-  padding: 0.7rem 0.9rem;
+  padding: 0.75rem 1rem;
   width: 100%;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 input:focus,
@@ -185,41 +252,58 @@ textarea:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-wash);
+  box-shadow: 0 0 0 4px var(--accent-wash);
+  background: white;
 }
 
 textarea {
   resize: vertical;
-  line-height: 1.8;
+  line-height: 1.85;
   min-height: 120px;
 }
 
 label {
   display: block;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
   margin-bottom: var(--space-2);
 }
 
+/* 卡片：白底、大圆角、浮起阴影，就像贴在页面上的白色卡片 */
 .card {
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   box-shadow: var(--shadow-1);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-2);
 }
 
+/* 大主卡片 —— 页面居中的那一大块 */
+.card-hero {
+  background: var(--card);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-2);
+}
+
+/* 类别标签 —— 参考图里的圆角小图标 */
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.15rem 0.6rem;
+  gap: 0.3rem;
+  padding: 0.2rem 0.7rem;
   border-radius: var(--radius-pill);
-  font-size: 0.8rem;
-  background: var(--paper-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--sky-soft);
   color: var(--ink-soft);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
 }
 
 .tag-accent {
@@ -230,10 +314,47 @@ label {
 
 .tag-amber {
   background: var(--amber-wash);
-  color: var(--amber);
+  color: #B67014;
   border-color: var(--amber-soft);
 }
 
+.tag-green {
+  background: var(--green-wash);
+  color: #2F7F55;
+  border-color: var(--green-soft);
+}
+
+.tag-blue {
+  background: var(--blue-wash);
+  color: #2D6BB8;
+  border-color: var(--blue-soft);
+}
+
+.tag-rose {
+  background: var(--rose-wash);
+  color: #B93257;
+  border-color: var(--rose-soft);
+}
+
+/* 图标底纹方块 —— 类似参考图里每张 trace 卡片左上角的圆角方块 */
+.icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: white;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+.icon-chip-accent { background: var(--accent); }
+.icon-chip-green { background: var(--green); }
+.icon-chip-amber { background: var(--amber); }
+.icon-chip-blue { background: var(--blue); }
+.icon-chip-rose { background: var(--rose); }
+
+/* 滚动条 */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -257,11 +378,22 @@ label {
   font-family: var(--font-serif);
 }
 
+.round {
+  font-family: var(--font-round);
+}
+
+/* 高亮下划线（参考图里"我的初步想法"上的黄色手绘线） */
+.underline-brush {
+  background-image: linear-gradient(180deg, transparent 65%, rgba(245, 166, 35, 0.45) 65%);
+  background-repeat: no-repeat;
+  padding: 0 0.2rem;
+}
+
 /* 出现动画 */
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -269,24 +401,33 @@ label {
   }
 }
 .fade-in {
-  animation: fadeUp 0.24s ease both;
+  animation: fadeUp 0.28s ease both;
 }
 
-/* 温和的脉动，供炼金釜 */
+/* 温和的脉动 */
 @keyframes cauldronPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(47, 122, 107, 0.28), var(--shadow-3);
+    box-shadow: 0 0 0 0 rgba(124, 99, 231, 0.32), var(--shadow-3);
   }
   50% {
-    box-shadow: 0 0 0 14px rgba(47, 122, 107, 0), var(--shadow-3);
+    box-shadow: 0 0 0 16px rgba(124, 99, 231, 0), var(--shadow-3);
   }
 }
 
-/* App 布局：左侧 sidebar + 主内容 */
+/* 轻微浮动 —— 装饰吉祥物 */
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.floaty {
+  animation: floatY 3.4s ease-in-out infinite;
+}
+
+/* App 布局 */
 .app-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 260px 1fr;
   min-height: 100vh;
   position: relative;
   z-index: 1;
@@ -294,7 +435,7 @@ label {
 
 .app-main {
   padding: var(--space-6) var(--space-8);
-  max-width: 1200px;
+  max-width: 1280px;
   width: 100%;
 }
 
@@ -305,4 +446,35 @@ label {
   .app-main {
     padding: var(--space-5);
   }
+  h1 { font-size: 1.7rem; }
+}
+
+/* 便签式贴纸卡片（保留、稍改） */
+.card-pinned {
+  background: var(--card);
+  border: 1px solid var(--amber-soft);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-2);
+  position: relative;
+}
+.card-pinned::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 48px;
+  height: 14px;
+  background: rgba(245, 166, 35, 0.32);
+  border-radius: 3px;
+  transform: translateX(-50%) rotate(-1.5deg);
+}
+
+/* eyebrow 段落小标签 */
+.eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
 }

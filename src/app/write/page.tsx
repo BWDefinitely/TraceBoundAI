@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listStories, readStoryBody, type Story, type StorylineBeat } from "../../lib/store";
+import { listStories, readStoryBody, type Story, type StoryShelf } from "../../lib/store";
 import { PageHeader } from "../_components/PageHeader";
 import { DeleteStoryButton, NewStoryButton, ReopenStoryButton } from "./ClientBits";
 
@@ -18,7 +18,7 @@ export default async function WritePage() {
       <PageHeader
         eyebrow="故事创作"
         title="慢慢地写下你的故事"
-        intro="这是主舞台。每一篇故事都会先给你一条“起承转合”的故事线做路标。写累了，随时从左边打开素材或炼金抽屉——不会打断当前正文。"
+        intro="这是主舞台。每一篇故事都有 6 个部分（主人公 / 目标 / 发生 / 困难 / 转折 / 结局）作为路标。写累了，随时从左边或顶部打开 Trace 或炼金抽屉——不会打断当前正文。"
         right={<NewStoryButton />}
       />
 
@@ -122,7 +122,7 @@ function StoriesGrid({
             {s.preview || "（还没有正文）"}
             {s.preview.length >= 140 ? "…" : ""}
           </p>
-          <StorylineMini beats={s.storyline} />
+          <ShelfMini shelf={s.shelf} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
             {completed ? (
               <>
@@ -149,15 +149,17 @@ function StoriesGrid({
   );
 }
 
-function StorylineMini({ beats }: { beats: StorylineBeat }) {
+function ShelfMini({ shelf }: { shelf: StoryShelf }) {
   const items = [
-    { key: "起", v: beats.qi },
-    { key: "承", v: beats.cheng },
-    { key: "转", v: beats.zhuan },
-    { key: "合", v: beats.he },
+    { key: "主", v: shelf.protagonist.text },
+    { key: "标", v: shelf.goal.text },
+    { key: "发", v: shelf.event.text },
+    { key: "困", v: shelf.difficulty.text },
+    { key: "转", v: shelf.turn.text },
+    { key: "终", v: shelf.ending.text },
   ];
   return (
-    <div style={{ display: "flex", gap: "0.4rem" }}>
+    <div style={{ display: "flex", gap: "0.3rem" }}>
       {items.map((it) => (
         <div
           key={it.key}

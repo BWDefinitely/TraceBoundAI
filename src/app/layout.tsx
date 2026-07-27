@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import "./globals.css";
 import { AppShell } from "./_components/AppShell";
-import { listAlchemy, listMaterials, readMaterialBody } from "../lib/store";
+import { listAlchemy, listFirstThoughts, listMaterials, readMaterialBody } from "../lib/store";
 import { currentModelLabel, currentProvider } from "../lib/ai";
 
 export const metadata = {
@@ -12,11 +12,16 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [materials, alchemyHistory] = await Promise.all([listMaterials(), listAlchemy()]);
+  const [materials, alchemyHistory, firstThoughts] = await Promise.all([
+    listMaterials(),
+    listAlchemy(),
+    listFirstThoughts(),
+  ]);
   const materialsWithBody = await Promise.all(
     materials.map(async (m) => ({ ...m, body: await readMaterialBody(m.id) }))
   );
-  const providerLabel = `${currentProvider()} · ${currentModelLabel()}`;
+  const [provider, modelLabel] = await Promise.all([currentProvider(), currentModelLabel()]);
+  const providerLabel = `${provider} · ${modelLabel}`;
 
   return (
     <html lang="zh-CN">
@@ -33,6 +38,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <AppShell
           materials={materialsWithBody}
           alchemyHistory={alchemyHistory}
+          firstThoughts={firstThoughts}
           providerLabel={providerLabel}
         >
           {children}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import type { AlchemyRecord, Material } from "../../lib/store";
-import { brewAction, deleteAlchemyAction } from "../_actions";
+import type { AlchemyRecord, Material, IdeaOrigin, IdeaDecision } from "../../lib/store";
+import { brewAction, createIdeaCardAction, deleteAlchemyAction } from "../_actions";
 import { Drawer } from "./Drawer";
 import type { HandoffTarget } from "./AppShell";
 
@@ -16,16 +16,34 @@ interface Props {
 }
 
 type Slot = "A" | "B";
+type BrewResult = { text: string; alchemyId: string; traceIds: [string, string]; relationship: string };
+
+// 设计文档 §"两个线索可能是什么关系？"：
+// 系统在合成前先让儿童选择关系方向，或自己描述。
+const RELATIONSHIP_HINTS = [
+  "一个是另一个的原因",
+  "它们同时发生",
+  "一个让角色误解另一个",
+  "它们属于不同角色",
+  "一个是线索，一个是结果",
+];
 
 export function AlchemyDrawer({ open, onClose, materials, history, providerLabel, handoff }: Props) {
   const [slotA, setSlotA] = useState<Material | null>(null);
   const [slotB, setSlotB] = useState<Material | null>(null);
   const [dragOver, setDragOver] = useState<Slot | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<BrewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
+  const [toast, setToast] = useState<string | null>(null);
+  const [relationship, setRelationship] = useState<string>("");
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -68,12 +86,25 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
       setError("先往炼金釜里放两份素材。");
       return;
     }
+    if (!relationship.trim()) {
+      setError("先选择或写一句：两条素材可能是什么关系？");
+      return;
+    }
     setError(null);
     setResult(null);
+    const rel = relationship.trim();
     startTransition(async () => {
-      const res = await brewAction({ aId: slotA.id, bId: slotB.id });
-      if (res.ok) setResult(res.record.result);
-      else setError(res.message);
+      const res = await brewAction({ aId: slotA.id, bId: slotB.id, relationship: rel });
+      if (res.ok) {
+        setResult({
+          text: res.record.result,
+          alchemyId: res.record.id,
+          traceIds: [slotA.id, slotB.id],
+          relationship: rel,
+        });
+      } else {
+        setError(res.message);
+      }
     });
   }
 
@@ -83,7 +114,7 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
       onClose={onClose}
       title="灵感炼金"
       subtitle={`两份素材 → 一段联想 · 当前引擎：${providerLabel}`}
-      color="amber"
+      color="accent"
       width={720}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
@@ -91,7 +122,7 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
           className="card"
           style={{
             padding: "var(--space-5)",
-            background: "linear-gradient(180deg, var(--paper-soft) 0%, var(--card) 60%)",
+            background: "linear-gradient(180deg, var(--accent-wash) 0%, var(--card) 55%)",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -113,7 +144,13 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
             />
             <span
               aria-hidden
-              style={{ fontFamily: "var(--font-serif)", fontSize: "1.5rem", color: "var(--amber)", fontWeight: 700 }}
+              style={{
+                fontFamily: "var(--font-round)",
+                fontSize: "1.8rem",
+                color: "var(--accent)",
+                fontWeight: 900,
+                textShadow: "0 2px 8px rgba(124,99,231,0.25)",
+              }}
             >
               +
             </span>
@@ -133,59 +170,99 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
 
           <CauldronSVG working={pending} filled={Boolean(slotA) && Boolean(slotB)} />
 
+          {slotA && slotB && !result && (
+            <div
+              style={{
+                width: "100%",
+                background: "var(--card)",
+                border: "2px dashed var(--accent-soft)",
+                borderRadius: "var(--radius)",
+                padding: "var(--space-4)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-2)",
+              }}
+            >
+              <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--accent)" }}>
+                🔗 两个线索可能是什么关系？
+              </div>
+              <div style={{ fontSize: "0.82rem", color: "var(--ink-soft)" }}>
+                在合成之前，先由你决定它们怎么连起来。AI 会顺着你的方向给一段联想，而不是替你想。
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.2rem" }}>
+                {RELATIONSHIP_HINTS.map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setRelationship(h)}
+                    aria-pressed={relationship === h}
+                    className={relationship === h ? "btn-primary" : ""}
+                    style={{
+                      fontSize: "0.8rem",
+                      padding: "0.35rem 0.85rem",
+                    }}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                rows={2}
+                placeholder="或者，用你自己的话描述这个关系……"
+                value={relationship}
+                onChange={(e) => setRelationship(e.target.value)}
+                style={{ marginTop: "0.3rem" }}
+              />
+            </div>
+          )}
+
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
             <button
               type="button"
-              className="btn-amber"
+              className="btn-primary"
               onClick={onBrew}
               disabled={pending || !slotA || !slotB}
-              style={{ fontSize: "1rem", padding: "0.7rem 1.6rem" }}
+              style={{ fontSize: "1rem", padding: "0.75rem 1.8rem" }}
             >
-              {pending ? "炼金中…" : "开始炼金"}
+              {pending ? "炼金中…" : "✨ 开始炼金"}
             </button>
             {error && <span style={{ fontSize: "0.9rem", color: "var(--danger)" }}>{error}</span>}
           </div>
         </section>
 
         {result && (
-          <section
-            className="card fade-in"
+          <IdeaCardEditor
+            key={result.alchemyId}
+            result={result}
+            onSaved={(msg) => {
+              showToast(msg);
+              setResult(null);
+              setSlotA(null);
+              setSlotB(null);
+              setRelationship("");
+            }}
+          />
+        )}
+
+        {toast && (
+          <div
+            role="status"
             style={{
-              padding: "var(--space-5)",
-              background: "var(--amber-wash)",
-              borderColor: "var(--amber-soft)",
+              position: "sticky",
+              top: 0,
+              padding: "0.55rem 1rem",
+              background: "var(--accent-wash)",
+              color: "var(--accent-2)",
+              borderRadius: "var(--radius-pill)",
+              fontSize: "0.9rem",
+              fontWeight: 700,
+              border: "1px solid var(--accent-soft)",
+              textAlign: "center",
+              boxShadow: "var(--shadow-1)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                <span style={{ color: "var(--amber)", fontSize: "1.1rem" }}>✦</span>
-                <div style={{ fontWeight: 700, color: "var(--amber)" }}>炼金火花</div>
-              </div>
-              {handoff?.onInsertAlchemy && (
-                <button
-                  className="btn-amber"
-                  style={{ padding: "0.35rem 0.9rem", fontSize: "0.9rem" }}
-                  onClick={() => {
-                    handoff.onInsertAlchemy!(result);
-                    onClose();
-                  }}
-                >
-                  作为灵感放进正文 →
-                </button>
-              )}
-            </div>
-            <p
-              style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: "1rem",
-                lineHeight: 1.85,
-                color: "var(--ink)",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {result}
-            </p>
-          </section>
+            {toast}
+          </div>
         )}
 
         <section>
@@ -287,7 +364,7 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               {history.slice(0, 8).map((h) => (
-                <HistoryItem key={h.id} record={h} onInsert={handoff?.onInsertAlchemy} onCloseDrawer={onClose} />
+                <HistoryItem key={h.id} record={h} onSavedAsIdea={showToast} />
               ))}
             </div>
           )}
@@ -332,11 +409,11 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
           onDragLeave();
         }}
         style={{
-          width: 170,
-          minHeight: 104,
+          width: 180,
+          minHeight: 112,
           borderRadius: "var(--radius-lg)",
-          border: `2px dashed ${highlighted ? "var(--amber)" : "var(--line)"}`,
-          background: highlighted ? "var(--amber-wash)" : "var(--card)",
+          border: `2px dashed ${highlighted ? "var(--accent)" : "var(--accent-soft)"}`,
+          background: highlighted ? "var(--accent-wash)" : "var(--card)",
           padding: "var(--space-3)",
           display: "flex",
           flexDirection: "column",
@@ -345,19 +422,21 @@ export function AlchemyDrawer({ open, onClose, materials, history, providerLabel
           textAlign: empty ? "center" : "left",
           transition: "all 0.15s ease",
           position: "relative",
+          boxShadow: value ? "var(--shadow-1)" : "none",
         }}
       >
         <span
           style={{
             position: "absolute",
             top: -10,
-            left: 12,
-            background: "var(--paper)",
-            padding: "0 6px",
-            fontSize: "0.7rem",
-            fontWeight: 700,
+            left: 14,
+            background: "var(--accent)",
+            color: "white",
+            padding: "2px 10px",
+            borderRadius: "var(--radius-pill)",
+            fontSize: "0.68rem",
+            fontWeight: 800,
             letterSpacing: "0.1em",
-            color: "var(--ink-soft)",
           }}
         >
           槽位 {slot}
@@ -409,62 +488,62 @@ function CauldronSVG({ working, filled }: { working: boolean; filled: boolean })
       <svg viewBox="0 0 260 220" width="100%" height="100%" role="img" aria-label="炼金釜">
         <defs>
           <linearGradient id="brew" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#C97A2B" stopOpacity={filled ? 0.9 : 0.35} />
-            <stop offset="1" stopColor="#2F7A6B" stopOpacity={filled ? 0.85 : 0.3} />
+            <stop offset="0" stopColor="#A692F0" stopOpacity={filled ? 0.95 : 0.4} />
+            <stop offset="1" stopColor="#7C63E7" stopOpacity={filled ? 0.9 : 0.35} />
           </linearGradient>
           <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#3A3F45" />
-            <stop offset="1" stopColor="#1D2226" />
+            <stop offset="0" stopColor="#5A4BB0" />
+            <stop offset="1" stopColor="#2E2255" />
           </linearGradient>
           <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0" stopColor="#F5C97D" stopOpacity="0.5" />
-            <stop offset="1" stopColor="#F5C97D" stopOpacity="0" />
+            <stop offset="0" stopColor="#C9BEF5" stopOpacity="0.65" />
+            <stop offset="1" stopColor="#C9BEF5" stopOpacity="0" />
           </radialGradient>
         </defs>
 
-        {filled && <circle cx="130" cy="110" r="90" fill="url(#glow)" />}
+        {filled && <circle cx="130" cy="110" r="96" fill="url(#glow)" />}
 
         {filled && (
-          <g opacity={working ? 0.9 : 0.55}>
-            <path d="M100 50 Q108 30 100 12" stroke="#B4DDD1" strokeWidth="4" strokeLinecap="round" fill="none">
+          <g opacity={working ? 0.95 : 0.6}>
+            <path d="M100 50 Q108 30 100 12" stroke="#C9BEF5" strokeWidth="4" strokeLinecap="round" fill="none">
               {working && <animate attributeName="opacity" values="0.2;1;0.2" dur="2.2s" repeatCount="indefinite" />}
             </path>
-            <path d="M130 44 Q140 26 132 6" stroke="#F1D6A9" strokeWidth="4" strokeLinecap="round" fill="none">
+            <path d="M130 44 Q140 26 132 6" stroke="#FCD79A" strokeWidth="4" strokeLinecap="round" fill="none">
               {working && <animate attributeName="opacity" values="0.4;1;0.4" dur="2.6s" repeatCount="indefinite" />}
             </path>
-            <path d="M160 50 Q168 32 160 14" stroke="#B4DDD1" strokeWidth="4" strokeLinecap="round" fill="none">
+            <path d="M160 50 Q168 32 160 14" stroke="#B0E0C5" strokeWidth="4" strokeLinecap="round" fill="none">
               {working && <animate attributeName="opacity" values="0.3;1;0.3" dur="1.8s" repeatCount="indefinite" />}
             </path>
           </g>
         )}
 
-        <ellipse cx="130" cy="80" rx="90" ry="14" fill="#242A31" />
-        <path d="M40 80 Q40 200 130 200 Q220 200 220 80 Z" fill="url(#body)" stroke="#12161A" strokeWidth="2" />
+        <ellipse cx="130" cy="80" rx="90" ry="14" fill="#3A2E70" />
+        <path d="M40 80 Q40 200 130 200 Q220 200 220 80 Z" fill="url(#body)" stroke="#241A48" strokeWidth="2" />
         <ellipse cx="130" cy="86" rx="82" ry="10" fill="url(#brew)" />
 
         {filled && working && (
           <>
-            <circle cx="105" cy="86" r="3" fill="#FBEFD6" opacity="0.85">
+            <circle cx="105" cy="86" r="3" fill="#FFFFFF" opacity="0.9">
               <animate attributeName="cy" values="86;74;86" dur="1.8s" repeatCount="indefinite" />
               <animate attributeName="opacity" values="0.8;0;0.8" dur="1.8s" repeatCount="indefinite" />
             </circle>
-            <circle cx="140" cy="86" r="2.5" fill="#FBEFD6" opacity="0.85">
+            <circle cx="140" cy="86" r="2.5" fill="#FFFFFF" opacity="0.85">
               <animate attributeName="cy" values="86;70;86" dur="2.2s" repeatCount="indefinite" />
               <animate attributeName="opacity" values="0.7;0;0.7" dur="2.2s" repeatCount="indefinite" />
             </circle>
-            <circle cx="155" cy="86" r="2" fill="#FBEFD6" opacity="0.85">
+            <circle cx="155" cy="86" r="2" fill="#FFFFFF" opacity="0.85">
               <animate attributeName="cy" values="86;76;86" dur="1.6s" repeatCount="indefinite" />
               <animate attributeName="opacity" values="0.6;0;0.6" dur="1.6s" repeatCount="indefinite" />
             </circle>
           </>
         )}
 
-        <rect x="70" y="200" width="12" height="14" rx="3" fill="#242A31" />
-        <rect x="178" y="200" width="12" height="14" rx="3" fill="#242A31" />
-        <path d="M96 214 Q104 200 112 214 Q108 208 104 214 Q100 208 96 214 Z" fill="#C97A2B" opacity="0.9">
+        <rect x="70" y="200" width="12" height="14" rx="3" fill="#3A2E70" />
+        <rect x="178" y="200" width="12" height="14" rx="3" fill="#3A2E70" />
+        <path d="M96 214 Q104 200 112 214 Q108 208 104 214 Q100 208 96 214 Z" fill="#F5A623" opacity="0.9">
           {working && <animate attributeName="opacity" values="0.5;1;0.5" dur="0.9s" repeatCount="indefinite" />}
         </path>
-        <path d="M148 214 Q156 200 164 214 Q160 208 156 214 Q152 208 148 214 Z" fill="#C97A2B" opacity="0.9">
+        <path d="M148 214 Q156 200 164 214 Q160 208 156 214 Q152 208 148 214 Z" fill="#F5A623" opacity="0.9">
           {working && <animate attributeName="opacity" values="0.7;1;0.7" dur="1.1s" repeatCount="indefinite" />}
         </path>
       </svg>
@@ -474,12 +553,10 @@ function CauldronSVG({ working, filled }: { working: boolean; filled: boolean })
 
 function HistoryItem({
   record,
-  onInsert,
-  onCloseDrawer,
+  onSavedAsIdea,
 }: {
   record: AlchemyRecord;
-  onInsert?: (text: string) => void;
-  onCloseDrawer: () => void;
+  onSavedAsIdea: (msg: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -503,7 +580,7 @@ function HistoryItem({
       >
         <span style={{ fontSize: "0.92rem" }}>
           <strong>{record.materialATitle}</strong>
-          <span style={{ color: "var(--amber)", margin: "0 0.5rem" }}>+</span>
+          <span style={{ color: "var(--accent)", margin: "0 0.5rem", fontWeight: 800 }}>+</span>
           <strong>{record.materialBTitle}</strong>
         </span>
         <span style={{ fontSize: "0.75rem", color: "var(--ink-soft)" }}>
@@ -525,20 +602,24 @@ function HistoryItem({
             {record.result}
           </p>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-2)" }}>
-            {onInsert ? (
-              <button
-                className="btn-primary"
-                style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem" }}
-                onClick={() => {
-                  onInsert(record.result);
-                  onCloseDrawer();
-                }}
-              >
-                作为灵感放进正文 →
-              </button>
-            ) : (
-              <span />
-            )}
+            <button
+              className="btn-primary"
+              style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem" }}
+              disabled={pending}
+              onClick={() => {
+                startTransition(async () => {
+                  const res = await createIdeaCardAction({
+                    content: record.result,
+                    sourceKind: "ai-inspired",
+                    sourceTraceIds: [record.materialAId, record.materialBId],
+                    parentAlchemyId: record.id,
+                  });
+                  if (res.ok) onSavedAsIdea("已保存为 Idea Card");
+                });
+              }}
+            >
+              {pending ? "保存中…" : "保存为 Idea Card →"}
+            </button>
             <button
               className="btn-ghost"
               style={{ color: "var(--danger)" }}
@@ -558,3 +639,199 @@ function HistoryItem({
     </div>
   );
 }
+
+// ---------- Idea Card 确认编辑器 ----------
+// 设计文档 §9 Idea Card 的确认机制：
+//   - 6 种「想法从哪里来」（origin）
+//   - 4 种「我的决定」（decision）
+//   - AI 建议不能一键插入正文，必须先经过孩子的确认
+// origin 会自动依据孩子是否编辑过内容给出建议。
+
+type SourceKind = "ai-inspired" | "child-edited" | "combined";
+
+const ORIGIN_OPTIONS: Array<{ id: IdeaOrigin; label: string; hint: string }> = [
+  { id: "pre-ai", label: "AI 出现前我已经想到", hint: "这是我原本就有的想法。" },
+  { id: "trace-relook", label: "重新看素材后想到", hint: "重新看 / 听 trace 时冒出来的。" },
+  { id: "ai-question", label: "AI 的问题启发了我", hint: "AI 问了一个我从没想过的问题。" },
+  { id: "ai-direction", label: "我采用了 AI 的一个方向", hint: "AI 给的方向我觉得可用。" },
+  { id: "ai-modified", label: "我改变了 AI 的建议", hint: "AI 说了 X，我改成了自己的样子。" },
+  { id: "ai-combined", label: "我和 AI 的想法组合而成", hint: "各出一半，拼在一起。" },
+];
+
+const DECISION_OPTIONS: Array<{ id: IdeaDecision; label: string; color: string }> = [
+  { id: "keep", label: "✓ 保留", color: "var(--green)" },
+  { id: "refine", label: "✎ 继续修改", color: "var(--amber)" },
+  { id: "shelve", label: "◔ 暂时放下", color: "var(--blue)" },
+  { id: "discard", label: "✗ 删除", color: "var(--danger)" },
+];
+
+function originToSourceKind(origin: IdeaOrigin): SourceKind {
+  if (origin === "pre-ai" || origin === "trace-relook") return "child-edited";
+  if (origin === "ai-combined") return "combined";
+  return "ai-inspired";
+}
+
+function IdeaCardEditor({
+  result,
+  onSaved,
+}: {
+  result: BrewResult;
+  onSaved: (msg: string) => void;
+}) {
+  const [content, setContent] = useState(result.text);
+  const [origin, setOrigin] = useState<IdeaOrigin>("ai-direction");
+  const [decision, setDecision] = useState<IdeaDecision>("keep");
+  const [pending, startTransition] = useTransition();
+
+  const edited = content.trim() !== result.text.trim();
+  // 建议：改动过 → ai-modified；未改动 → ai-direction
+  const suggestedOrigin: IdeaOrigin = edited ? "ai-modified" : "ai-direction";
+
+  return (
+    <section
+      className="card fade-in"
+      style={{
+        padding: "var(--space-5)",
+        background: "linear-gradient(180deg, var(--accent-wash) 0%, #FFFFFF 60%)",
+        borderColor: "var(--accent-soft)",
+        borderWidth: 2,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+        <span
+          className="icon-chip icon-chip-accent"
+          style={{ width: 32, height: 32, fontSize: "0.95rem" }}
+          aria-hidden
+        >
+          ✦
+        </span>
+        <div style={{ fontWeight: 800, color: "var(--accent-2)", fontSize: "1.05rem" }}>
+          炼金火花 · 编辑并保存为 Idea Card
+        </div>
+      </div>
+
+      {result.relationship && (
+        <div
+          style={{
+            fontSize: "0.85rem",
+            color: "var(--ink-soft)",
+            marginBottom: "var(--space-3)",
+            padding: "0.55rem 0.9rem",
+            background: "var(--card)",
+            border: "1px dashed var(--accent-soft)",
+            borderRadius: "var(--radius-pill)",
+          }}
+        >
+          🔗 你决定的关系：<span style={{ color: "var(--accent-2)", fontWeight: 700 }}>{result.relationship}</span>
+        </div>
+      )}
+
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        rows={6}
+        style={{
+          fontFamily: "var(--font-round)",
+          fontSize: "1rem",
+          lineHeight: 1.85,
+          background: "var(--card)",
+          border: "1.5px solid var(--accent-soft)",
+        }}
+      />
+
+      <div style={{ marginTop: "var(--space-4)" }}>
+        <div style={{ fontSize: "0.85rem", color: "var(--ink)", fontWeight: 700, marginBottom: "0.5rem" }}>
+          这个想法是怎么产生的？
+        </div>
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          {ORIGIN_OPTIONS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => setOrigin(o.id)}
+              aria-pressed={origin === o.id}
+              title={o.hint}
+              className={origin === o.id ? "btn-primary" : ""}
+              style={{ padding: "0.35rem 0.8rem", fontSize: "0.78rem" }}
+            >
+              {o.label}
+              {suggestedOrigin === o.id && origin !== o.id && (
+                <span style={{ marginLeft: 4, fontSize: "0.68rem", opacity: 0.7 }}>· 建议</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: "var(--space-4)" }}>
+        <div style={{ fontSize: "0.85rem", color: "var(--ink)", fontWeight: 700, marginBottom: "0.5rem" }}>
+          我对这张 Idea Card 的决定：
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {DECISION_OPTIONS.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setDecision(d.id)}
+              aria-pressed={decision === d.id}
+              style={{
+                padding: "0.4rem 1rem",
+                fontSize: "0.85rem",
+                fontWeight: 700,
+                background: decision === d.id ? d.color : "var(--card)",
+                color: decision === d.id ? "white" : d.color,
+                border: `1.5px solid ${d.color}`,
+                borderRadius: "var(--radius-pill)",
+                boxShadow: decision === d.id ? "var(--shadow-1)" : "none",
+              }}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "var(--space-2)",
+          marginTop: "var(--space-5)",
+        }}
+      >
+        <button
+          className="btn-primary"
+          disabled={pending || !content.trim() || decision === "discard"}
+          onClick={() =>
+            startTransition(async () => {
+              const res = await createIdeaCardAction({
+                content: content.trim(),
+                sourceKind: originToSourceKind(origin),
+                origin,
+                decision,
+                relationship: result.relationship,
+                sourceTraceIds: [...result.traceIds],
+                parentAlchemyId: result.alchemyId,
+              });
+              if (res.ok) {
+                if (decision === "shelve") onSaved("已放入 Idea Card 抽屉，暂时放下");
+                else onSaved("已保存为 Idea Card，可在故事编辑器右侧看到");
+              }
+            })
+          }
+        >
+          {pending
+            ? "保存中…"
+            : decision === "discard"
+              ? "已选择删除"
+              : decision === "shelve"
+                ? "暂时放下"
+                : decision === "refine"
+                  ? "保存为进一步修改"
+                  : "确认并保存为 Idea Card"}
+        </button>
+      </div>
+    </section>
+  );
+}
+

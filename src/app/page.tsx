@@ -6,11 +6,13 @@ import { HomeShortcuts } from "./_components/HomeShortcuts";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [materials, stories, alchemy, reflections] = await Promise.all([
+  const [materials, stories, alchemy, reflections, provider, modelLabel] = await Promise.all([
     listMaterials(),
     listStories(),
     listAlchemy(),
     listReflections(),
+    currentProvider(),
+    currentModelLabel(),
   ]);
   const active = stories.filter((s) => !s.completedAt);
   const done = stories.filter((s) => s.completedAt);
@@ -136,8 +138,8 @@ export default async function HomePage() {
         </div>
         <div style={{ fontSize: "0.85rem", color: "var(--ink-soft)" }}>
           AI 引擎：
-          <strong style={{ color: "var(--ink)", marginLeft: 4 }}>{currentProvider()}</strong>
-          <span className="muted" style={{ marginLeft: 6 }}>· {currentModelLabel()}</span>
+          <strong style={{ color: "var(--ink)", marginLeft: 4 }}>{provider}</strong>
+          <span className="muted" style={{ marginLeft: 6 }}>· {modelLabel}</span>
         </div>
       </section>
     </div>

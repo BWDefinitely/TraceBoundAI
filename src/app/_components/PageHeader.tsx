@@ -20,22 +20,15 @@ export function PageHeader({ eyebrow, title, intro, right }: Props) {
     >
       <div style={{ minWidth: 0 }}>
         {eyebrow && (
-          <div
-            style={{
-              fontSize: "0.75rem",
-              letterSpacing: "0.14em",
-              fontWeight: 700,
-              color: "var(--accent)",
-              textTransform: "uppercase",
-              marginBottom: "var(--space-2)",
-            }}
-          >
+          <div className="eyebrow" style={{ marginBottom: "var(--space-2)" }}>
             {eyebrow}
           </div>
         )}
-        <h1 style={{ marginBottom: intro ? "var(--space-2)" : 0 }}>{title}</h1>
+        <h1 style={{ marginBottom: intro ? "var(--space-2)" : 0 }}>
+          <span className="underline-brush">{title}</span>
+        </h1>
         {intro && (
-          <p className="muted" style={{ maxWidth: 640, fontSize: "1rem", lineHeight: 1.7 }}>
+          <p className="muted" style={{ maxWidth: 660, fontSize: "1rem", lineHeight: 1.75 }}>
             {intro}
           </p>
         )}

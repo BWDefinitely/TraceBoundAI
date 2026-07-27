@@ -34,7 +34,8 @@ export function Drawer({ open, onClose, title, subtitle, width = 640, color = "a
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(31, 22, 8, 0.28)",
+          background: "rgba(30, 20, 60, 0.32)",
+          backdropFilter: "blur(2px)",
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           transition: "opacity 0.2s ease",
@@ -49,47 +50,45 @@ export function Drawer({ open, onClose, title, subtitle, width = 640, color = "a
         aria-label={title}
         style={{
           position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
+          top: "var(--space-3)",
+          right: "var(--space-3)",
+          bottom: "var(--space-3)",
           width: `min(${width}px, 96vw)`,
-          background: "var(--paper)",
-          borderLeft: `4px solid ${accent}`,
+          background: "linear-gradient(180deg, #FFFFFF 0%, #FBFAFF 100%)",
+          borderRadius: "var(--radius-xl)",
+          border: "1px solid var(--line-soft)",
           boxShadow: "var(--shadow-3)",
-          transform: open ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)",
+          transform: open ? "translateX(0)" : "translateX(110%)",
+          transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
           zIndex: 41,
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
       >
         <header
           style={{
             padding: "var(--space-4) var(--space-5)",
-            borderBottom: "1px solid var(--line)",
+            borderBottom: "1px solid var(--line-soft)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: "var(--space-3)",
+            background: `linear-gradient(135deg, ${accent}18 0%, transparent 60%)`,
           }}
         >
           <div style={{ minWidth: 0 }}>
             <div
-              style={{
-                fontSize: "0.7rem",
-                letterSpacing: "0.14em",
-                fontWeight: 700,
-                color: accent,
-                textTransform: "uppercase",
-                marginBottom: 2,
-              }}
+              className="eyebrow"
+              style={{ color: accent, marginBottom: 2 }}
             >
               侧边工具 · 不会打断正文
             </div>
             <h2
               style={{
-                fontFamily: "var(--font-serif)",
-                fontSize: "1.3rem",
+                fontFamily: "var(--font-round)",
+                fontSize: "1.35rem",
+                fontWeight: 900,
                 margin: 0,
               }}
             >
@@ -105,7 +104,15 @@ export function Drawer({ open, onClose, title, subtitle, width = 640, color = "a
             onClick={onClose}
             className="btn-ghost"
             aria-label="关闭"
-            style={{ fontSize: "1.4rem", padding: "0.2rem 0.7rem" }}
+            style={{
+              fontSize: "1.3rem",
+              padding: "0.1rem 0.7rem",
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              background: "white",
+              boxShadow: "var(--shadow-1)",
+            }}
           >
             ×
           </button>

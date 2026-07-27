@@ -2,12 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
-import type { AlchemyRecord, Material, MaterialWithBody } from "../../lib/types";
+import type { AlchemyRecord, FirstThought, Material, MaterialWithBody } from "../../lib/types";
 import { Sidebar } from "./Sidebar";
 import { MaterialsDrawer } from "./MaterialsDrawer";
 import { AlchemyDrawer } from "./AlchemyDrawer";
+import { SettingsDrawer } from "./SettingsDrawer";
 
-export type DrawerKind = "materials" | "alchemy" | null;
+export type DrawerKind = "materials" | "alchemy" | "settings" | null;
 
 interface DrawerCtx {
   open: DrawerKind;
@@ -38,10 +39,11 @@ interface Props {
   children: ReactNode;
   materials: MaterialWithBody[];
   alchemyHistory: AlchemyRecord[];
+  firstThoughts: FirstThought[];
   providerLabel: string;
 }
 
-export function AppShell({ children, materials, alchemyHistory, providerLabel }: Props) {
+export function AppShell({ children, materials, alchemyHistory, firstThoughts, providerLabel }: Props) {
   const [open, setOpen] = useState<DrawerKind>(null);
   const [handoff, setHandoff] = useState<HandoffTarget | null>(null);
 
@@ -73,6 +75,7 @@ export function AppShell({ children, materials, alchemyHistory, providerLabel }:
         open={open === "materials"}
         onClose={close}
         materials={materials}
+        firstThoughts={firstThoughts}
         handoff={handoff}
       />
       <AlchemyDrawer
@@ -83,6 +86,7 @@ export function AppShell({ children, materials, alchemyHistory, providerLabel }:
         providerLabel={providerLabel}
         handoff={handoff}
       />
+      <SettingsDrawer open={open === "settings"} onClose={close} />
     </Ctx.Provider>
   );
 }
