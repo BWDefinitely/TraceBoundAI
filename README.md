@@ -103,10 +103,10 @@ AI_MODEL=gpt-4o-mini
 
 在设置抽屉里切换，或用 `EXPERIMENT_CONDITION` 环境变量（`trace-bound` / `topic-based`，默认 `trace-bound`）：
 
-- **Trace-Bound（痕迹约束）** — AI 可读取孩子授权的 traces、现场解释、Pre-AI 想法、Idea Card 与故事结构，回应带「基于 P/S/R」来源标签，灵感炼金可用。
-- **Topic-Based（仅主题）** — AI 看不到原始照片 / 声音 / 视频 / 现场语音及 Pre-AI 想法，只读当前 Idea Card、Story Shelf 与正文；不生成来源标签，灵感炼金停用。孩子自己仍可查看全部 traces。
+- **Trace-Bound（痕迹约束）** — AI 可读取孩子授权的 traces、现场解释、Pre-AI 想法、Idea Card 与故事结构，回应带「基于 P3 和 S2」痕迹代号来源标签。
+- **Topic-Based（仅主题）** — AI 看不到原始照片 / 声音 / 视频 / 现场语音及 Pre-AI 想法，只读统一任务、当前 Idea Card、Story Shelf 与正文；来源标签改为引用孩子当前写下的内容（形如「基于你当前写下的‘神秘地点’和‘重复声音’」）。孩子自己仍可查看全部 traces。
 
-唯一核心差异是 AI 能否直接访问并引用孩子的多模态痕迹及其来源。当前实验条件会写入每一条 CHI 埋点事件。
+两条件的页面结构、三种创意模式、World Witness / Story Coach、回复次数与长度、Narrative Move Library、Story Fusion Board、Story Shelf、写作时间与最终提交都相同——**唯一核心差异是 AI 能否直接访问并引用孩子的多模态痕迹及其来源**。当前实验条件会写入每一条 CHI 埋点事件。
 
 ## 与 PRD 的对齐
 
@@ -127,7 +127,7 @@ AI_MODEL=gpt-4o-mini
 | §3.8 拒绝记录 | ✓ 反思页单独板块列出所有 rejected + 原因 | `ReflectForm.tsx`（RejectedSuggestionsPanel）|
 | §3.8 Story Journey | ✓ 5 个关键决定（主人公 / 目标 / 困难 / 转折 / 结局）逐一询问「最早从哪里出现」，6 个来源关系选项 | `ReflectForm.tsx`（StoryJourneyPanel）|
 | §3.1 Outdoor Mission | ✓ Field Companion 机器人引导慢观察（10 秒停留 + 轮换提示），记录 `outdoor-observe` 事件，「记录发现」跳转素材抽屉 | `outdoor/OutdoorMission.tsx` |
-| §"两个实验条件" | ✓ Trace-Bound / Topic-Based 切换。topic-based 下 AI 剥离 traces/first-thoughts、不加来源标签、禁用炼金 | `ai.ts`（askAgent 门控）+ `SettingsDrawer.tsx` |
+| §"两个实验条件" | ✓ Trace-Bound / Topic-Based 切换。两条件页面/模式/双 Agent/炼金台/Shelf 全相同，唯一差异是 AI 能否读取原始痕迹：topic-based 下 AI 剥离 traces/first-thoughts，来源标签改为引用「你当前写下的…」 | `ai.ts`（askAgent 门控）+ `SettingsDrawer.tsx` |
 | §4 CHI 埋点日志 | ✓ append-only 事件流（采集 / 授权 / Pre-AI / 合成 / Idea Card / Agent / 决定 / 完成 / 反思），带实验条件，NDJSON 导出 | `store.ts`（appendEvent / exportEventsNdjson）+ `SettingsDrawer.tsx` |
 
 拍照 / 录音 UI 按钮为 mock：能选择文件 / 触发状态切换，但不会真的存储媒体文件（只存 `mediaKind` 元数据）。真实多模态在阶段 C。

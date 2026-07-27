@@ -125,6 +125,28 @@ function traceAttributionTag(traces: Material[]): string {
   return `基于 ${parts.join(' 和 ')}`;
 }
 
+// 设计文档 §"Topic-Based AI 条件"：AI 回应仍显示来源标签，但只引用孩子当前
+// 写下的内容——形如"基于你当前写下的'神秘地点'和'重复声音'"。这里从当前
+// Idea Cards（优先）或 Story Shelf 的文本里取 1-2 个短片段作为引用。
+function topicAttributionTag(context?: AgentContext): string {
+  const quote = (s: string) => `“${s.trim().replace(/\s+/g, '').slice(0, 12)}”`;
+  const picks: string[] = [];
+  for (const idea of context?.ideas ?? []) {
+    if (idea.content?.trim()) picks.push(quote(idea.content));
+    if (picks.length >= 2) break;
+  }
+  if (picks.length < 2 && context?.shelfSoFar) {
+    const slots = ['protagonist', 'goal', 'event', 'difficulty', 'turn', 'ending'] as const;
+    for (const k of slots) {
+      const text = context.shelfSoFar[k]?.text;
+      if (text?.trim()) picks.push(quote(text));
+      if (picks.length >= 2) break;
+    }
+  }
+  if (picks.length === 0) return '';
+  return `基于你当前写下的 ${picks.join(' 和 ')}`;
+}
+
 export async function askAgent(input: {
   persona: Persona;
   mode?: CreativeMode;         // 可选：如果指定则叠加模式特定 prompt
@@ -146,7 +168,7 @@ export async function askAgent(input: {
       : input.context;
   if (condition === "topic-based") {
     systemPrompt +=
-      "\n\n【当前实验条件 · Topic-Based】你看不到孩子的原始照片、声音、视频或现场语音。只能基于孩子当前写下的 Idea Card、Story Shelf 和正文来回应。回应里不要假装看过任何现场素材，也不要生成「基于 P/S/R」式来源标签。";
+      "\n\n【当前实验条件 · Topic-Based】你看不到孩子的原始照片、声音、视频或现场语音，也看不到他在 AI 出现前记录的想法。你只能读取统一的故事任务、孩子当前写下的 Idea Card、Story Shelf 和正文。回应里不要假装看过任何现场素材，也不要使用「P3 / S2」这类痕迹代号。引用来源时，只引用孩子当前写下的内容，例如「基于你当前写下的‘神秘地点’和‘重复声音’」。";
   }
 
   // 把 context 序列化到 userPrompt 前面
@@ -193,24 +215,25 @@ export async function askAgent(input: {
     else if (provider === "openai-compat") reply = await callOpenAiCompat(systemPrompt, fullPrompt, settings);
     else reply = mockAgentResponse(input.persona, input.mode, fullPrompt);
 
-    // 设计文档要求：trace-bound 条件下 AI 回应必须显示"基于照片 P3 和声音 S2"式的来源标签。
-    // topic-based 条件下 context.traces 已被剥离，这里自然不会加标签。
-    const traces = context?.traces ?? [];
-    if (traces.length > 0) {
-      const tag = traceAttributionTag(traces);
-      if (tag && !reply.startsWith(tag)) {
-        reply = `${tag}——\n\n${reply}`;
-      }
+    // 设计文档 §"两个实验条件"：两个条件都要显示来源标签，只是引用对象不同。
+    //   trace-bound：引用痕迹代号 —— "基于照片 P3 和声音 S2"。
+    //   topic-based：引用孩子当前写下的内容 —— "基于你当前写下的‘神秘地点’和‘重复声音’"。
+    const tag =
+      condition === "topic-based"
+        ? topicAttributionTag(context)
+        : traceAttributionTag(context?.traces ?? []);
+    if (tag && !reply.startsWith(tag)) {
+      reply = `${tag}——\n\n${reply}`;
     }
     return reply;
   } catch (err) {
     console.error(`[ai] askAgent(${input.persona}) failed, falling back to mock:`, err);
     let reply = mockAgentResponse(input.persona, input.mode, fullPrompt, (err as Error).message);
-    const traces = context?.traces ?? [];
-    if (traces.length > 0) {
-      const tag = traceAttributionTag(traces);
-      if (tag) reply = `${tag}——\n\n${reply}`;
-    }
+    const tag =
+      condition === "topic-based"
+        ? topicAttributionTag(context)
+        : traceAttributionTag(context?.traces ?? []);
+    if (tag && !reply.startsWith(tag)) reply = `${tag}——\n\n${reply}`;
     return reply;
   }
 }

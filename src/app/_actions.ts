@@ -279,19 +279,21 @@ export async function brewAction(input: { aId: string; bId: string; relationship
     };
   }
 
-  // 设计文档 §"两个实验条件"：topic-based 条件下 AI 不能读取原始 trace 内容与现场解释。
-  // Story Fusion Board 依赖读取两条素材的正文与三问，故在该条件下禁用炼金。
+  // 设计文档 §"两个实验条件"：Story Fusion Board 在两个条件下都相同（都可用），
+  // 唯一差异是 AI 是否能直接访问并引用孩子的原始多模态痕迹及其来源。
+  //   trace-bound：AI 读取素材正文 + 三问现场解释，联想更贴近真实痕迹。
+  //   topic-based：AI 看不到原始素材内容与现场解释，只依据孩子自己写下的
+  //                「两条素材的关系」来联想（素材标题仅作为孩子当前输入的引用）。
   const condition = await currentCondition();
-  if (condition === "topic-based") {
-    return {
-      ok: false as const,
-      message: "当前是 Topic-Based 条件，AI 不能读取原始素材，灵感炼金已停用。",
-    };
-  }
+  const traceBound = condition === "trace-bound";
 
-  const [aText, bText] = await Promise.all([readMaterialBody(a.id), readMaterialBody(b.id)]);
-  // 把三问文本也拼进正文里，让 AI 有更完整的语境
+  const [aText, bText] = traceBound
+    ? await Promise.all([readMaterialBody(a.id), readMaterialBody(b.id)])
+    : ["", ""];
+  // trace-bound 下把三问文本也拼进正文里，让 AI 有更完整的语境；
+  // topic-based 下不暴露正文与三问，只留标题/类型这类孩子当前输入。
   const composeText = (m: typeof a, body: string) => {
+    if (!traceBound) return "";
     const parts: string[] = [];
     if (body.trim()) parts.push(body);
     if (m.iNoticed) parts.push(`我注意到：${m.iNoticed}`);

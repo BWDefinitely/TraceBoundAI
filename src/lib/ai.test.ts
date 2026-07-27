@@ -52,7 +52,36 @@ describe("askAgent 实验条件门控", () => {
     expect(reply.startsWith("基于 P1")).toBe(true);
   });
 
-  it("topic-based：即使传入 traces，也不会出现来源标签", async () => {
+  it("topic-based：不使用痕迹代号，改为引用孩子当前写下的内容", async () => {
+    await store.saveAiSettings({ provider: "mock", condition: "topic-based" });
+    const reply = await ai.askAgent({
+      persona: "world-witness",
+      mode: "open-up",
+      userPrompt: "帮我想想",
+      context: {
+        traces: [fakeTrace("t1", "photo")],
+        ideas: [
+          {
+            id: "i1",
+            content: "神秘地点",
+            sourceKind: "ai-inspired",
+            sourceTraceIds: [],
+            origin: "ai-direction",
+            decision: "keep",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    // 文档 §"Topic-Based AI 条件"：不出现 P/S/R 痕迹代号，
+    // 但仍显示「基于你当前写下的…」式来源标签。
+    expect(reply.includes("P1")).toBe(false);
+    expect(reply.startsWith("基于你当前写下的")).toBe(true);
+    expect(reply.includes("神秘地点")).toBe(true);
+  });
+
+  it("topic-based：没有 Idea Card / Shelf 时不强加标签", async () => {
     await store.saveAiSettings({ provider: "mock", condition: "topic-based" });
     const reply = await ai.askAgent({
       persona: "world-witness",
@@ -60,7 +89,7 @@ describe("askAgent 实验条件门控", () => {
       userPrompt: "帮我想想",
       context: { traces: [fakeTrace("t1", "photo")] },
     });
-    expect(reply.includes("基于 P1")).toBe(false);
+    expect(reply.includes("基于")).toBe(false);
   });
 
   it("多条 trace 的来源标签按 media 前缀与顺序编号", async () => {
