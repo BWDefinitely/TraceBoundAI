@@ -1,9 +1,14 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { askAgent, brewAlchemy, currentCondition, type CreativeMode, type Persona } from "../lib/ai";
+// 纯前端"actions"。原本是 Next.js server actions（写服务器文件系统），
+// 现在整个数据层搬到浏览器 IndexedDB（见 lib/client-store），因此这些函数
+// 直接在客户端跑。导出名保持不变，上层组件 import 无需改动。
+//
+// 写操作完成后广播 `tracebound:changed` 事件，DataProvider 监听后重载数据、
+// 触发 UI 刷新（替代原来的 revalidatePath）。
+
+import { askAgent, brewAlchemy, type CreativeMode, type Persona } from "../lib/ai";
 import {
-  MaterialKind,
   createMaterial,
   deleteMaterial,
   updateMaterial,
@@ -31,24 +36,29 @@ import {
   saveAiSettings,
   appendEvent,
   exportEventsNdjson,
-  type EventType,
-  type IdeaCard,
-  type StoryShelf,
-  type DecisionEntry,
-  type AiSettings,
-  type AiProvider,
-  type ExperimentCondition,
+} from "../lib/client-store";
+import type {
+  MaterialKind,
+  EventType,
+  IdeaCard,
+  StoryShelf,
+  DecisionEntry,
 } from "../lib/store";
+import type { AiSettings, AiProvider, ExperimentCondition } from "../lib/ai-settings";
 
 const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "声音", "画面"];
 const MEDIA_KINDS = ["text", "photo", "audio"] as const;
 type MediaKind = (typeof MEDIA_KINDS)[number];
 
+export const DATA_CHANGED_EVENT = "tracebound:changed";
+
 function refreshAll() {
-  revalidatePath("/", "layout");
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT));
+  }
 }
 
-// CHI 埋点：把事件写进事件日志。读取当前实验条件一并记录，失败不影响主流程。
+// CHI 埋点：把事件写进事件日志，读取当前实验条件一并记录，失败不影响主流程。
 async function logEvent(
   type: EventType,
   payload?: Record<string, unknown>,
@@ -73,6 +83,7 @@ export async function createMaterialAction(input: {
   stillUnsure?: string;
   aiAllowed?: boolean;
   mediaKind?: string;
+  media?: Blob;
 }) {
   const kind: MaterialKind = (KINDS as string[]).includes(input.kind)
     ? (input.kind as MaterialKind)
@@ -89,10 +100,7 @@ export async function createMaterialAction(input: {
     return { ok: false as const, message: "至少填一个字段再保存吧" };
   }
   const tags = input.tags
-    ? input.tags
-        .split(/[，,\s]+/)
-        .map((t) => t.trim())
-        .filter(Boolean)
+    ? input.tags.split(/[，,\s]+/).map((t) => t.trim()).filter(Boolean)
     : [];
   const m = await createMaterial({
     title,
@@ -103,6 +111,7 @@ export async function createMaterialAction(input: {
     stillUnsure,
     aiAllowed: input.aiAllowed ?? true,
     mediaKind,
+    media: input.media,
   });
   await logEvent("trace-capture", { traceId: m.id, mediaKind: m.mediaKind, aiAllowed: m.aiAllowed });
   refreshAll();
@@ -121,6 +130,7 @@ export async function updateMaterialAction(
     stillUnsure?: string;
     aiAllowed?: boolean;
     mediaKind?: string;
+    media?: Blob;
   }
 ) {
   const kind: MaterialKind | undefined = patch.kind
@@ -135,10 +145,7 @@ export async function updateMaterialAction(
     : undefined;
   const tags =
     patch.tags !== undefined
-      ? patch.tags
-          .split(/[，,\s]+/)
-          .map((t) => t.trim())
-          .filter(Boolean)
+      ? patch.tags.split(/[，,\s]+/).map((t) => t.trim()).filter(Boolean)
       : undefined;
   await updateMaterial(id, {
     title: patch.title,
@@ -150,6 +157,7 @@ export async function updateMaterialAction(
     stillUnsure: patch.stillUnsure,
     aiAllowed: patch.aiAllowed,
     mediaKind,
+    media: patch.media,
   });
   if (patch.aiAllowed !== undefined) {
     await logEvent("trace-ai-permission", { traceId: id, aiAllowed: patch.aiAllowed });
@@ -250,7 +258,6 @@ export async function reopenStoryAction(id: string) {
   return s;
 }
 
-// 记录一条 Decision Ledger 条目（AI 交互）
 export async function appendDecisionAction(
   storyId: string,
   entry: Omit<DecisionEntry, "timestamp">
@@ -273,25 +280,17 @@ export async function brewAction(input: { aId: string; bId: string; relationship
   if (!a || !b) return { ok: false as const, message: "有一份素材已找不到了。" };
   if (a.id === b.id) return { ok: false as const, message: "选两份不一样的素材才能炼金。" };
   if (!a.aiAllowed || !b.aiAllowed) {
-    return {
-      ok: false as const,
-      message: "其中一份素材没有开启「允许 AI 读取」。",
-    };
+    return { ok: false as const, message: "其中一份素材没有开启「允许 AI 读取」。" };
   }
 
   // 设计文档 §"两个实验条件"：Story Fusion Board 在两个条件下都相同（都可用），
   // 唯一差异是 AI 是否能直接访问并引用孩子的原始多模态痕迹及其来源。
-  //   trace-bound：AI 读取素材正文 + 三问现场解释，联想更贴近真实痕迹。
-  //   topic-based：AI 看不到原始素材内容与现场解释，只依据孩子自己写下的
-  //                「两条素材的关系」来联想（素材标题仅作为孩子当前输入的引用）。
-  const condition = await currentCondition();
-  const traceBound = condition === "trace-bound";
+  const settings = await getAiSettings();
+  const traceBound = settings.condition === "trace-bound";
 
   const [aText, bText] = traceBound
     ? await Promise.all([readMaterialBody(a.id), readMaterialBody(b.id)])
     : ["", ""];
-  // trace-bound 下把三问文本也拼进正文里，让 AI 有更完整的语境；
-  // topic-based 下不暴露正文与三问，只留标题/类型这类孩子当前输入。
   const composeText = (m: typeof a, body: string) => {
     if (!traceBound) return "";
     const parts: string[] = [];
@@ -301,15 +300,18 @@ export async function brewAction(input: { aId: string; bId: string; relationship
     if (m.stillUnsure) parts.push(`还不确定：${m.stillUnsure}`);
     return parts.join("\n");
   };
-  const result = await brewAlchemy({
-    materialATitle: a.title,
-    materialAKind: a.kind,
-    materialAText: composeText(a, aText),
-    materialBTitle: b.title,
-    materialBKind: b.kind,
-    materialBText: composeText(b, bText),
-    relationship: input.relationship?.trim() || undefined,
-  });
+  const result = await brewAlchemy(
+    {
+      materialATitle: a.title,
+      materialAKind: a.kind,
+      materialAText: composeText(a, aText),
+      materialBTitle: b.title,
+      materialBKind: b.kind,
+      materialBText: composeText(b, bText),
+      relationship: input.relationship?.trim() || undefined,
+    },
+    settings
+  );
   const rec = await saveAlchemy({
     materialAId: a.id,
     materialBId: b.id,
@@ -342,8 +344,9 @@ export async function askAgentAction(input: {
   traceIds?: string[];
   ideaIds?: string[];
   includeShelf?: boolean;
-  includeStoryBody?: boolean;   // Look Again 需要故事最新片段
+  includeStoryBody?: boolean;
 }) {
+  const settings = await getAiSettings();
   const [allMaterials, allIdeas, story, allFirstThoughts, body] = await Promise.all([
     input.traceIds && input.traceIds.length > 0 ? listMaterials() : Promise.resolve([]),
     input.ideaIds && input.ideaIds.length > 0 ? listIdeaCards() : Promise.resolve([]),
@@ -354,9 +357,7 @@ export async function askAgentAction(input: {
   const traces = input.traceIds
     ? allMaterials.filter((m) => input.traceIds!.includes(m.id) && m.aiAllowed)
     : [];
-  const ideas = input.ideaIds
-    ? allIdeas.filter((i) => input.ideaIds!.includes(i.id))
-    : [];
+  const ideas = input.ideaIds ? allIdeas.filter((i) => input.ideaIds!.includes(i.id)) : [];
   const traceIdSet = new Set(traces.map((t) => t.id));
   const firstThoughts = allFirstThoughts.filter((f) => traceIdSet.has(f.traceId));
 
@@ -364,6 +365,7 @@ export async function askAgentAction(input: {
     persona: input.persona,
     mode: input.mode,
     userPrompt: input.userPrompt,
+    settings,
     context: {
       traces: traces.length > 0 ? traces : undefined,
       ideas: ideas.length > 0 ? ideas : undefined,
@@ -411,8 +413,6 @@ export async function deleteReflectionAction(id: string) {
 }
 
 // ---------- first thoughts (Pre-AI Baseline) ----------
-// 需求文档 §3.4：此阶段"完全屏蔽 AI"，所以这里只有存/删两个 action，
-// 不允许调用 askAgent。前端在写 First Thought 时也应隐藏所有 AI 入口。
 
 export async function saveFirstThoughtAction(input: {
   traceId: string;
@@ -420,7 +420,6 @@ export async function saveFirstThoughtAction(input: {
   guessed: string;
   couldBecome: string;
 }) {
-  // 三个字段至少填一个
   if (
     !input.actuallySawHeard.trim() &&
     !input.guessed.trim() &&
@@ -440,8 +439,6 @@ export async function deleteFirstThoughtAction(traceId: string) {
 }
 
 // ---------- outdoor mission (阶段1) ----------
-// 设计文档 §3.1：户外慢观察阶段的机器人引导。记录停留时长、是否跳过提示等，
-// 用于 CHI 分析。此阶段不产生真实媒体，只记录观察行为事件。
 
 export async function logOutdoorObserveAction(input: {
   dwellSeconds?: number;

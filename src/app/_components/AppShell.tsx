@@ -2,11 +2,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
-import type { AlchemyRecord, FirstThought, Material, MaterialWithBody } from "../../lib/types";
+import type { Material } from "../../lib/types";
 import { Sidebar } from "./Sidebar";
 import { MaterialsDrawer } from "./MaterialsDrawer";
 import { AlchemyDrawer } from "./AlchemyDrawer";
 import { SettingsDrawer } from "./SettingsDrawer";
+import { useData } from "./DataProvider";
 
 export type DrawerKind = "materials" | "alchemy" | "settings" | null;
 
@@ -37,13 +38,10 @@ export function useDrawers(): DrawerCtx {
 
 interface Props {
   children: ReactNode;
-  materials: MaterialWithBody[];
-  alchemyHistory: AlchemyRecord[];
-  firstThoughts: FirstThought[];
-  providerLabel: string;
 }
 
-export function AppShell({ children, materials, alchemyHistory, firstThoughts, providerLabel }: Props) {
+export function AppShell({ children }: Props) {
+  const { materials, alchemy: alchemyHistory, firstThoughts, providerLabel } = useData();
   const [open, setOpen] = useState<DrawerKind>(null);
   const [handoff, setHandoff] = useState<HandoffTarget | null>(null);
 

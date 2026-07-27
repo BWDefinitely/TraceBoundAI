@@ -1,21 +1,23 @@
-import { listMaterials, listReflections, listStories } from "../../lib/store";
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "../_components/PageHeader";
 import { ReflectForm } from "./ReflectForm";
+import { useData } from "../_components/DataProvider";
 
-export const dynamic = "force-dynamic";
+export default function ReflectPage() {
+  return (
+    <Suspense fallback={<div className="fade-in"><p className="muted">正在加载…</p></div>}>
+      <ReflectPageInner />
+    </Suspense>
+  );
+}
 
-export default async function ReflectPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ story?: string }>;
-}) {
-  const [sp, stories, reflections, materials] = await Promise.all([
-    searchParams,
-    listStories(),
-    listReflections(),
-    listMaterials(),
-  ]);
-  const initial = sp.story ?? "";
+function ReflectPageInner() {
+  const searchParams = useSearchParams();
+  const { stories, reflections, materials } = useData();
+  const initial = searchParams.get("story") ?? "";
   const done = stories.filter((s) => s.completedAt).length;
 
   return (

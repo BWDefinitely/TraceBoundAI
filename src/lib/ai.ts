@@ -1,22 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Material, IdeaCard, StoryShelf, FirstThought, AiSettings } from "./store";
-import { getAiSettings } from "./store";
+import type { Material, IdeaCard, StoryShelf, FirstThought } from "./store";
+import type { AiSettings } from "./ai-settings";
 
 // AI 层：为「灵感炼金」联想两份素材 + 双 Agent 辅助故事创作。
 //
-// Provider / API key / Model / Base URL 现在通过 ~/TraceBound/settings/ai.json
-// 本地文件管理（可在前端"AI 设置"抽屉里改）。首次未配置时会退回读取环境变量：
-//
-//   AI_PROVIDER=mock                # 本地规则，无需 key
-//   AI_PROVIDER=anthropic           # 官方 Claude
-//     ANTHROPIC_API_KEY=sk-ant-...
-//     ANTHROPIC_MODEL=claude-opus-4-8         (可选)
-//     ANTHROPIC_BASE_URL=...                  (可选，走代理)
-//
-//   AI_PROVIDER=openai-compat       # 任何遵守 OpenAI /v1/chat/completions 协议的第三方
-//     AI_BASE_URL=https://api.openai.com/v1
-//     AI_API_KEY=sk-...
-//     AI_MODEL=gpt-4o-mini
+// 现在整个应用是纯前端（数据在浏览器 IndexedDB）。AI 调用也在浏览器里直接发起，
+// Provider / API key / Model / Base URL 通过前端「AI 设置」抽屉配置，存 IndexedDB。
+// 调用方需把 settings 作为参数传进来（见 askAgent 的 settings 参数）。
 
 // Persona / CreativeMode / CreativeModeInfo / CREATIVE_MODES / NarrativeMove /
 // NARRATIVE_MOVES 已抽到 ./ai-modes（不依赖 store.ts，可安全被 client 组件引用）。
@@ -62,18 +52,15 @@ export interface AlchemyInput {
 
 export type AiProvider = "mock" | "anthropic" | "openai-compat";
 
-export async function currentProvider(): Promise<AiProvider> {
-  const s = await getAiSettings();
+export function providerOf(s: AiSettings): AiProvider {
   return s.provider;
 }
 
-export async function currentCondition() {
-  const s = await getAiSettings();
+export function conditionOf(s: AiSettings) {
   return s.condition;
 }
 
-export async function currentModelLabel(): Promise<string> {
-  const s = await getAiSettings();
+export function modelLabelOf(s: AiSettings): string {
   if (s.provider === "anthropic") return s.anthropic.model || "claude-opus-4-8";
   if (s.provider === "openai-compat") return s.openaiCompat.model || "(未设置模型)";
   return "本地模拟";
@@ -95,10 +82,11 @@ function buildAlchemyUserText(input: AlchemyInput): string {
   );
 }
 
-export async function brewAlchemy(input: AlchemyInput): Promise<string> {
+export async function brewAlchemy(input: AlchemyInput, settings: AiSettings): Promise<string> {
   return await askAgent({
     persona: 'alchemy',
     userPrompt: buildAlchemyUserText(input),
+    settings,
   });
 }
 
@@ -152,8 +140,9 @@ export async function askAgent(input: {
   mode?: CreativeMode;         // 可选：如果指定则叠加模式特定 prompt
   userPrompt: string;
   context?: AgentContext;
+  settings: AiSettings;
 }): Promise<string> {
-  const settings = await getAiSettings();
+  const settings = input.settings;
   const provider = settings.provider;
   const condition = settings.condition;
   let systemPrompt = SYSTEM_PROMPTS[input.persona];
@@ -248,7 +237,8 @@ async function callAnthropic(
   const model = settings.anthropic.model.trim() || "claude-opus-4-8";
   const baseURL = settings.anthropic.baseUrl.trim() || undefined;
 
-  const client = new Anthropic({ apiKey, baseURL });
+  // 纯前端调用：Anthropic SDK 默认禁止在浏览器直连，这里显式放开。
+  const client = new Anthropic({ apiKey, baseURL, dangerouslyAllowBrowser: true });
   const resp = await client.messages.create({
     model,
     max_tokens: 800,

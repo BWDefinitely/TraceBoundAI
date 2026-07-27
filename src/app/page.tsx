@@ -1,19 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import { listAlchemy, listMaterials, listReflections, listStories, homeRoot } from "../lib/store";
-import { currentModelLabel, currentProvider } from "../lib/ai";
 import { HomeShortcuts } from "./_components/HomeShortcuts";
+import { useData } from "./_components/DataProvider";
 
-export const dynamic = "force-dynamic";
-
-export default async function HomePage() {
-  const [materials, stories, alchemy, reflections, provider, modelLabel] = await Promise.all([
-    listMaterials(),
-    listStories(),
-    listAlchemy(),
-    listReflections(),
-    currentProvider(),
-    currentModelLabel(),
-  ]);
+export default function HomePage() {
+  const { materials, stories, alchemy, reflections, settings, providerLabel } = useData();
+  const provider = settings?.provider ?? "mock";
+  const modelLabel = providerLabel.split(" · ")[1] ?? providerLabel;
   const active = stories.filter((s) => !s.completedAt);
   const done = stories.filter((s) => s.completedAt);
 
@@ -134,7 +128,7 @@ export default async function HomePage() {
           <div style={{ fontSize: "0.85rem", color: "var(--ink-soft)", marginBottom: "var(--space-1)" }}>
             数据存放
           </div>
-          <div style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>{homeRoot()}</div>
+          <div style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>浏览器本地 · IndexedDB</div>
         </div>
         <div style={{ fontSize: "0.85rem", color: "var(--ink-soft)" }}>
           AI 引擎：

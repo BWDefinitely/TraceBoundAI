@@ -1,22 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { describe, it, expect } from "vitest";
+// 数据层已迁移到浏览器 IndexedDB（client-store）。测试用 fake-indexeddb 提供
+// 一个内存版 indexedDB，import 之后即可像浏览器一样读写。
+import "fake-indexeddb/auto";
 
-// store.ts 在导入时就读取 TRACEBOUND_HOME 决定 ROOT，所以必须在 import 之前设置。
-const TMP = path.join(os.tmpdir(), `tracebound-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-process.env.TRACEBOUND_HOME = TMP;
-
-// 动态导入，确保上面的 env 已生效。
-const store = await import("./store");
-
-beforeAll(async () => {
-  await fs.mkdir(TMP, { recursive: true });
-});
-
-afterAll(async () => {
-  await fs.rm(TMP, { recursive: true, force: true });
-});
+const store = await import("./client-store");
 
 describe("materials (Trace) CRUD", () => {
   it("创建后能读回，且默认 aiAllowed=true / mediaKind=text", async () => {
@@ -121,7 +108,6 @@ describe("CHI event log", () => {
     const ndjson = await store.exportEventsNdjson();
     const lines = ndjson.split("\n");
     expect(lines.length).toBe(after.length);
-    // 每行都是合法 JSON
     for (const line of lines) {
       expect(() => JSON.parse(line)).not.toThrow();
     }
@@ -130,7 +116,6 @@ describe("CHI event log", () => {
 
 describe("AI settings 实验条件", () => {
   it("默认 condition 为 trace-bound", async () => {
-    // 用一个干净的临时目录读取默认设置（无 ai.json 时走默认）
     const s = await store.getAiSettings();
     expect(["trace-bound", "topic-based"]).toContain(s.condition);
   });

@@ -1,27 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { describe, it, expect } from "vitest";
+import type { AiSettings } from "./ai-settings";
 
-const TMP = path.join(os.tmpdir(), `tracebound-ai-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-process.env.TRACEBOUND_HOME = TMP;
-// 确保用本地 mock provider，不打真实 API。
-process.env.AI_PROVIDER = "mock";
-
-const store = await import("./store");
 const ai = await import("./ai");
 
-beforeAll(async () => {
-  await fs.mkdir(TMP, { recursive: true });
-});
-
-afterAll(async () => {
-  await fs.rm(TMP, { recursive: true, force: true });
-});
-
-beforeEach(async () => {
-  await store.saveAiSettings({ provider: "mock", condition: "trace-bound" });
-});
+// 纯前端 AI 层：settings 由调用方传入。这里构造 mock provider 的设置，
+// 避免打真实 API。
+function mockSettings(condition: "trace-bound" | "topic-based"): AiSettings {
+  return {
+    provider: "mock",
+    condition,
+    anthropic: { apiKey: "", model: "claude-opus-4-8", baseUrl: "" },
+    openaiCompat: { apiKey: "", model: "", baseUrl: "" },
+  };
+}
 
 function fakeTrace(id: string, mediaKind: "photo" | "audio" | "text") {
   return {
@@ -42,22 +33,22 @@ function fakeTrace(id: string, mediaKind: "photo" | "audio" | "text") {
 
 describe("askAgent 实验条件门控", () => {
   it("trace-bound：带 photo trace 时回应以「基于 P1」来源标签开头", async () => {
-    await store.saveAiSettings({ provider: "mock", condition: "trace-bound" });
     const reply = await ai.askAgent({
       persona: "world-witness",
       mode: "open-up",
       userPrompt: "帮我想想",
+      settings: mockSettings("trace-bound"),
       context: { traces: [fakeTrace("t1", "photo")] },
     });
     expect(reply.startsWith("基于 P1")).toBe(true);
   });
 
   it("topic-based：不使用痕迹代号，改为引用孩子当前写下的内容", async () => {
-    await store.saveAiSettings({ provider: "mock", condition: "topic-based" });
     const reply = await ai.askAgent({
       persona: "world-witness",
       mode: "open-up",
       userPrompt: "帮我想想",
+      settings: mockSettings("topic-based"),
       context: {
         traces: [fakeTrace("t1", "photo")],
         ideas: [
@@ -66,10 +57,11 @@ describe("askAgent 实验条件门控", () => {
             content: "神秘地点",
             sourceKind: "ai-inspired",
             sourceTraceIds: [],
+            sourceIdeaIds: [],
+            parentAlchemyId: null,
             origin: "ai-direction",
             decision: "keep",
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
           },
         ],
       },
@@ -82,21 +74,21 @@ describe("askAgent 实验条件门控", () => {
   });
 
   it("topic-based：没有 Idea Card / Shelf 时不强加标签", async () => {
-    await store.saveAiSettings({ provider: "mock", condition: "topic-based" });
     const reply = await ai.askAgent({
       persona: "world-witness",
       mode: "open-up",
       userPrompt: "帮我想想",
+      settings: mockSettings("topic-based"),
       context: { traces: [fakeTrace("t1", "photo")] },
     });
     expect(reply.includes("基于")).toBe(false);
   });
 
   it("多条 trace 的来源标签按 media 前缀与顺序编号", async () => {
-    await store.saveAiSettings({ provider: "mock", condition: "trace-bound" });
     const reply = await ai.askAgent({
       persona: "story-coach",
       userPrompt: "继续",
+      settings: mockSettings("trace-bound"),
       context: { traces: [fakeTrace("t1", "photo"), fakeTrace("t2", "audio")] },
     });
     // P1 = 第一条 photo，S2 = 第二条 audio

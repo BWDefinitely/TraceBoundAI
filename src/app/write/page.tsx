@@ -1,17 +1,15 @@
+"use client";
+
 import Link from "next/link";
-import { listStories, readStoryBody, type Story, type StoryShelf } from "../../lib/store";
+import type { StoryShelf } from "../../lib/store";
 import { PageHeader } from "../_components/PageHeader";
 import { DeleteStoryButton, NewStoryButton, ReopenStoryButton } from "./ClientBits";
+import { useData, type StoryWithBody } from "../_components/DataProvider";
 
-export const dynamic = "force-dynamic";
-
-export default async function WritePage() {
-  const stories = await listStories();
-  const withBody = await Promise.all(
-    stories.map(async (s) => ({ ...s, preview: (await readStoryBody(s.id)).slice(0, 140) }))
-  );
-  const active = withBody.filter((s) => !s.completedAt);
-  const completed = withBody.filter((s) => s.completedAt);
+export default function WritePage() {
+  const { stories } = useData();
+  const active = stories.filter((s) => !s.completedAt);
+  const completed = stories.filter((s) => s.completedAt);
 
   return (
     <div className="fade-in">
@@ -73,7 +71,7 @@ function StoriesGrid({
   items,
   completed = false,
 }: {
-  items: Array<Story & { preview: string }>;
+  items: StoryWithBody[];
   completed?: boolean;
 }) {
   return (

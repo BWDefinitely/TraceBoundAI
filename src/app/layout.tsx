@@ -1,28 +1,14 @@
 import type { ReactNode } from "react";
 import "./globals.css";
 import { AppShell } from "./_components/AppShell";
-import { listAlchemy, listFirstThoughts, listMaterials, readMaterialBody } from "../lib/store";
-import { currentModelLabel, currentProvider } from "../lib/ai";
+import { DataProvider } from "./_components/DataProvider";
 
 export const metadata = {
   title: "Trace-Bound · 我的写作工作室",
   description: "把生活的碎片慢慢写成属于你自己的故事。",
 };
 
-export const dynamic = "force-dynamic";
-
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [materials, alchemyHistory, firstThoughts] = await Promise.all([
-    listMaterials(),
-    listAlchemy(),
-    listFirstThoughts(),
-  ]);
-  const materialsWithBody = await Promise.all(
-    materials.map(async (m) => ({ ...m, body: await readMaterialBody(m.id) }))
-  );
-  const [provider, modelLabel] = await Promise.all([currentProvider(), currentModelLabel()]);
-  const providerLabel = `${provider} · ${modelLabel}`;
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN">
       <head>
@@ -35,14 +21,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
       </head>
       <body>
-        <AppShell
-          materials={materialsWithBody}
-          alchemyHistory={alchemyHistory}
-          firstThoughts={firstThoughts}
-          providerLabel={providerLabel}
-        >
-          {children}
-        </AppShell>
+        <DataProvider>
+          <AppShell>{children}</AppShell>
+        </DataProvider>
       </body>
     </html>
   );
