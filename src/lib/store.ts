@@ -5,7 +5,7 @@
 export type { AiProvider, AiSettings } from "./ai-settings";
 import type { AiProvider, AiSettings } from "./ai-settings";
 
-export type MaterialKind = "观察" | "感受" | "想法" | "对话" | "人物";
+export type MaterialKind = "观察" | "感受" | "想法" | "对话" | "人物" | "物品";
 
 export interface Material {
   id: string;
@@ -52,7 +52,7 @@ export interface Story {
   body: string;               // 正文
   aiWordCount: number;        // AI 生成字数
   userWordCount: number;      // 用户自写字数
-  sceneImages?: Array<{ blobId: string; prompt: string; createdAt: string }>;      // 生成的场景图片（存 media store 的 Blob ID）
+  sceneImages?: Array<{ blobId: string; prompt: string; description?: string; createdAt: string }>;      // 生成的场景图片（存 media store 的 Blob ID）
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;

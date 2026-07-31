@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { Story } from "../../lib/store";
-import { generateImage } from "../../lib/ai";
+import { generateImage, readImage } from "../../lib/ai";
 import { getAiSettings, saveMediaBlob, getMediaBlob } from "../../lib/client-store";
 import { saveStoryAction, askAgentAction } from "../_actions";
 
@@ -11,26 +11,41 @@ interface Props {
   storyBody: string;
 }
 
-// 场景生图面板：点击后 AI 根据已写内容自动生成 1-4 张 1:1 图片。
-// 支持多图预览和单图点击放大。
+interface ImageWithMeta {
+  url: string;
+  prompt: string;
+  description: string;
+  index: number;
+}
+
+// 场景生图面板：支持自定义prompt，AI读图生成描述，可编辑描述
 export function SceneImagePanel({ story, storyBody }: Props) {
   const [generating, setGenerating] = useState(false);
-  const [images, setImages] = useState<{ url: string; prompt: string }[]>([]);
+  const [images, setImages] = useState<ImageWithMeta[]>([]);
   const [zoom, setZoom] = useState<string | null>(null);
   const [count, setCount] = useState(2);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingDescription, setEditingDescription] = useState("");
 
   // 加载已有场景图
   useEffect(() => {
     let revoked: string[] = [];
     (async () => {
       const existing = story.sceneImages ?? [];
-      const loaded: { url: string; prompt: string }[] = [];
-      for (const img of existing) {
+      const loaded: ImageWithMeta[] = [];
+      for (let i = 0; i < existing.length; i++) {
+        const img = existing[i];
         const blob = await getMediaBlob(img.blobId);
         if (blob) {
           const url = URL.createObjectURL(blob);
           revoked.push(url);
-          loaded.push({ url, prompt: img.prompt });
+          loaded.push({ 
+            url, 
+            prompt: img.prompt, 
+            description: img.description || "暂无描述",
+            index: i
+          });
         }
       }
       setImages(loaded);
@@ -42,7 +57,13 @@ export function SceneImagePanel({ story, storyBody }: Props) {
   }, [story.id]);
 
   // 从正文拆解出不同的场景片段（分镜）
-  async function buildScenePrompts(numScenes: number): Promise<string[]> {
+  async function buildScenePrompts(numScenes: number, userPrompt?: string): Promise<string[]> {
+    // 如果用户提供了自定义prompt，直接使用
+    if (userPrompt?.trim()) {
+      const styleContext = buildStyleContext();
+      return [userPrompt.trim()].concat(Array(numScenes - 1).fill(""));
+    }
+
     const text = storyBody.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     if (!text) {
       return [`儿童绘本插画风格，1:1 正方形构图，温暖明亮的色彩，描绘：${story.metadata.place || "一个场景"}`];
@@ -52,11 +73,23 @@ export function SceneImagePanel({ story, storyBody }: Props) {
     const styleContext = buildStyleContext();
 
     try {
+      // 传入完整的故事内容和元数据，让AI理解风格
+      const fullContext = `
+故事元数据：
+- 时间：${story.metadata.time || "未知"}
+- 地点：${story.metadata.place || "未知"}
+- 人物：${story.metadata.people?.join("、") || "未知"}
+- 事件：${story.metadata.event || "未知"}
+
+故事内容：
+${text}
+`;
+
       const res = await askAgentAction({
         persona: "story-coach",
         userPrompt:
-          `请阅读下面的故事内容，拆解成 ${numScenes} 个不同的关键场景，每个场景用一句话描述（30字内），` +
-          `分别编号「1.」「2.」「3.」「4.」开头，适合画成儿童绘本插画。只给场景描述，不要额外解释。\n\n故事：${text.slice(0, 600)}`,
+          `请仔细阅读下面的故事元数据和内容，理解故事的风格、氛围和基调，然后拆解成 ${numScenes} 个不同的关键场景，每个场景用一句话描述（30字内），` +
+          `分别编号「1.」「2.」「3.」「4.」开头，适合画成儿童绘本插画。只给场景描述，不要额外解释。\n\n${fullContext}`,
         storyId: story.id,
         includeStoryBody: false,
       });
@@ -78,7 +111,7 @@ export function SceneImagePanel({ story, storyBody }: Props) {
     for (let i = 0; i < numScenes && i < sentences.length; i++) {
       const start = i * step;
       const snippet = sentences.slice(start, start + step).join("").slice(0, 200);
-      prompts.push(`${styleContext}，描绘如下故事场景：${snippet}`);
+      prompts.push(`${buildStyleContext()}，描绘如下故事场景：${snippet}`);
     }
     return prompts.slice(0, numScenes);
   }
@@ -148,34 +181,58 @@ export function SceneImagePanel({ story, storyBody }: Props) {
 
   async function handleGenerate() {
     const text = storyBody.replace(/<[^>]+>/g, "").trim();
-    if (!text) {
-      alert("先写点故事内容，我才能画出场景哦～");
+    if (!text && !customPrompt.trim()) {
+      alert("请先写点故事内容，或输入自定义提示词");
       return;
     }
     setGenerating(true);
     try {
       const settings = await getAiSettings();
-      const prompts = await buildScenePrompts(count);
+      const prompts = await buildScenePrompts(count, customPrompt);
       
-      // 确保生成的数量等于用户选择的数量
-      const actualCount = Math.min(count, prompts.length);
+      // 如果是自定义prompt且只有一个，复制到所需数量
+      const actualPrompts = customPrompt.trim() 
+        ? Array(count).fill(prompts[0])
+        : prompts;
+      
+      const actualCount = Math.min(count, actualPrompts.length);
       console.log(`[SceneImagePanel] 将生成 ${actualCount} 张图片`);
       
-      const newImages: { url: string; prompt: string }[] = [];
+      const newImages: ImageWithMeta[] = [];
       const newRecords = [...(story.sceneImages ?? [])];
       
       for (let i = 0; i < actualCount; i++) {
-        const prompt = prompts[i];
+        const prompt = actualPrompts[i];
+        if (!prompt) continue;
+        
         console.log(`[SceneImagePanel] 生成第 ${i + 1}/${actualCount} 张，prompt:`, prompt);
         const blob = await generateImage(prompt, settings);
         const blobId = `scene-${Date.now()}-${i}`;
         await saveMediaBlob(blobId, blob);
-        newRecords.push({ blobId, prompt, createdAt: new Date().toISOString() });
-        newImages.push({ url: URL.createObjectURL(blob), prompt });
+        
+        // 使用AI读图生成简短描述
+        let description = "正在生成描述...";
+        try {
+          const file = new File([blob], `scene-${i}.png`, { type: blob.type });
+          const aiDesc = await readImage(file, settings, "请用一句话（不超过20字）简短描述这张图片的内容");
+          description = aiDesc.slice(0, 50); // 限制长度
+        } catch (err) {
+          console.error("[SceneImagePanel] AI读图失败:", err);
+          description = "场景图片";
+        }
+        
+        newRecords.push({ blobId, prompt, description, createdAt: new Date().toISOString() });
+        newImages.push({ 
+          url: URL.createObjectURL(blob), 
+          prompt, 
+          description,
+          index: newRecords.length - 1
+        });
       }
       
       await saveStoryAction(story.id, { sceneImages: newRecords });
       setImages((prev) => [...prev, ...newImages]);
+      setCustomPrompt(""); // 清空自定义prompt
     } catch (err) {
       console.error("[SceneImagePanel] 生成失败:", err);
       alert("生成失败：" + (err as Error).message);
@@ -184,11 +241,51 @@ export function SceneImagePanel({ story, storyBody }: Props) {
     }
   }
 
+  async function handleSaveDescription(index: number) {
+    if (editingIndex !== index) return;
+    
+    const newRecords = [...(story.sceneImages ?? [])];
+    if (newRecords[index]) {
+      newRecords[index] = {
+        ...newRecords[index],
+        description: editingDescription
+      };
+      await saveStoryAction(story.id, { sceneImages: newRecords });
+      
+      setImages(prev => prev.map(img => 
+        img.index === index 
+          ? { ...img, description: editingDescription }
+          : img
+      ));
+    }
+    
+    setEditingIndex(null);
+    setEditingDescription("");
+  }
+
   return (
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h3 style={{ fontSize: "1.05rem", margin: 0 }}>🎨 场景生图</h3>
         <span style={{ fontSize: "0.82rem", color: "var(--ink-soft)" }}>已生成 {images.length} 张</span>
+      </div>
+
+      {/* 自定义提示词输入 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+          自定义提示词（选填，留空自动根据故事风格生成）
+        </label>
+        <textarea
+          value={customPrompt}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          placeholder="例：一只小兔子在森林里探险，卡通风格，温馨明亮..."
+          disabled={generating}
+          style={{ 
+            minHeight: 60, 
+            resize: "vertical",
+            fontSize: "0.9rem"
+          }}
+        />
       </div>
 
       <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
@@ -199,25 +296,106 @@ export function SceneImagePanel({ story, storyBody }: Props) {
           ))}
         </select>
         <button className="btn-primary" onClick={handleGenerate} disabled={generating} style={{ flex: 1 }}>
-          {generating ? "AI 绘制中..." : "根据故事生成场景图"}
+          {generating ? "AI 绘制中..." : customPrompt.trim() ? "根据提示词生成" : "根据故事生成场景图"}
         </button>
       </div>
 
       {images.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "var(--space-3)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
           {images.map((img, i) => (
             <div
               key={i}
-              onClick={() => setZoom(img.url)}
               style={{
-                aspectRatio: "1 / 1",
-                borderRadius: "var(--radius)",
-                overflow: "hidden",
+                display: "flex",
+                gap: "var(--space-3)",
+                padding: "var(--space-3)",
                 border: "1px solid var(--line)",
-                cursor: "zoom-in",
+                borderRadius: "var(--radius)",
+                background: "var(--surface)",
               }}
             >
-              <img src={img.url} alt={`场景 ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              {/* 图片缩略图 */}
+              <div
+                onClick={() => setZoom(img.url)}
+                style={{
+                  width: 120,
+                  height: 120,
+                  flexShrink: 0,
+                  borderRadius: "var(--radius)",
+                  overflow: "hidden",
+                  border: "1px solid var(--line)",
+                  cursor: "zoom-in",
+                }}
+              >
+                <img src={img.url} alt={`场景 ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+
+              {/* 描述和编辑 */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--ink-soft)" }}>
+                  场景 {i + 1}
+                </div>
+                
+                {editingIndex === img.index ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                    <input
+                      value={editingDescription}
+                      onChange={(e) => setEditingDescription(e.target.value)}
+                      placeholder="输入图片描述..."
+                      style={{ fontSize: "0.9rem" }}
+                      autoFocus
+                    />
+                    <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                      <button 
+                        onClick={() => handleSaveDescription(img.index)}
+                        className="btn-primary"
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}
+                      >
+                        保存
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setEditingIndex(null);
+                          setEditingDescription("");
+                        }}
+                        className="btn-secondary"
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    style={{ 
+                      fontSize: "0.9rem", 
+                      lineHeight: 1.6,
+                      cursor: "pointer",
+                      padding: "var(--space-2)",
+                      background: "var(--card)",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid transparent",
+                      transition: "border-color 0.2s ease",
+                    }}
+                    onClick={() => {
+                      setEditingIndex(img.index);
+                      setEditingDescription(img.description);
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--accent-soft)"}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = "transparent"}
+                  >
+                    {img.description}
+                    <span style={{ 
+                      marginLeft: "var(--space-2)", 
+                      fontSize: "0.75rem", 
+                      color: "var(--accent)",
+                      opacity: 0.7
+                    }}>
+                      ✏️ 点击编辑
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

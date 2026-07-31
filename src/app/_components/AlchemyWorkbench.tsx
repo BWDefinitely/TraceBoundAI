@@ -361,9 +361,12 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
   const [brewingProgress, setBrewingProgress] = useState(0);
   const [result, setResult] = useState<{ description: string; imageUrl: string } | null>(null);
   const [title, setTitle] = useState("");
-  const [tags, setTags] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [iNoticed, setINoticed] = useState("");
   const [itRemindsMe, setItRemindsMe] = useState("");
+  
+  // 从所有素材中提取唯一标签
+  const allTags = Array.from(new Set(materials.flatMap(m => m.tags))).sort();
 
   function handleDrop() {
     if (!dragId) return;
@@ -486,7 +489,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
         imageUrl 
       });
       setTitle(`素材融合：${selectedMaterials.length}个元素`);
-      setTags("素材融合");
+      setSelectedTags([]);
       setINoticed("");
       setItRemindsMe("");
     } catch (err) {
@@ -505,7 +508,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
       await createMaterialAction({
         title: title.trim() || `素材融合：${selectedMaterials.length}个元素`,
         kind: "观察",
-        tags: tags.trim(),
+        tags: selectedTags.join(","),
         iNoticed: iNoticed || result.description,
         itRemindsMe: itRemindsMe || "",
         aiAllowed: true,
@@ -516,7 +519,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
       setResult(null);
       setSelectedMaterials([]);
       setTitle("");
-      setTags("");
+      setSelectedTags([]);
       setINoticed("");
       setItRemindsMe("");
     } catch {
@@ -742,16 +745,48 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
             />
           </label>
 
-          {/* 标签 */}
-          <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>标签</span>
-            <input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="多个标签用逗号分隔，如：素材融合,创意,灵感"
-              style={{ fontSize: "0.9rem" }}
-            />
-          </label>
+          {/* 标签选择 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>标签（从现有素材标签中选择）</span>
+            {allTags.length > 0 ? (
+              <>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", padding: "var(--space-2)", border: "1px solid var(--line)", borderRadius: "var(--radius)", minHeight: "40px", background: "var(--surface)" }}>
+                  {allTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTags(prev => 
+                          prev.includes(tag) 
+                            ? prev.filter(t => t !== tag)
+                            : [...prev, tag]
+                        );
+                      }}
+                      style={{
+                        padding: "0.3rem 0.7rem",
+                        fontSize: "0.8rem",
+                        background: selectedTags.includes(tag) ? "var(--accent)" : "var(--card)",
+                        color: selectedTags.includes(tag) ? "white" : "var(--ink)",
+                        border: `1px solid ${selectedTags.includes(tag) ? "var(--accent)" : "var(--line)"}`,
+                        borderRadius: "var(--radius-sm)",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                <p style={{ fontSize: "0.75rem", color: "var(--ink-soft)", margin: 0 }}>
+                  已选择 {selectedTags.length} 个标签{selectedTags.length > 0 ? `：${selectedTags.join("、")}` : ""}
+                </p>
+              </>
+            ) : (
+              <p style={{ fontSize: "0.85rem", color: "var(--ink-soft)", padding: "var(--space-2)", background: "var(--surface)", borderRadius: "var(--radius)" }}>
+                素材库中还没有标签，保存后可以手动添加
+              </p>
+            )}
+          </div>
 
           {/* 三问表单 */}
           <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>

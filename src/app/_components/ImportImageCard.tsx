@@ -5,7 +5,7 @@ import type { ImportImage } from "./ImportFlow";
 import type { MaterialKind } from "../../lib/store";
 import { getMediaBlob } from "../../lib/client-store";
 
-const MATERIAL_KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物"];
+const MATERIAL_KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物", "物品"];
 
 interface Props {
   image: ImportImage;

@@ -44,7 +44,7 @@ import type {
 } from "../lib/store";
 import type { AiSettings, AiProvider } from "../lib/ai-settings";
 
-const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物"];
+const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物", "物品"];
 const MEDIA_KINDS = ["text", "photo", "audio"] as const;
 type MediaKind = (typeof MEDIA_KINDS)[number];
 

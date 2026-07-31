@@ -11,7 +11,7 @@ import {
 import { Drawer } from "./Drawer";
 import type { HandoffTarget } from "./AppShell";
 
-const KINDS = ["观察", "感受", "想法", "对话", "声音", "画面"] as const;
+const KINDS = ["观察", "感受", "想法", "对话", "人物", "物品"] as const;
 type Kind = (typeof KINDS)[number];
 type MediaKind = "text" | "photo" | "audio";
 

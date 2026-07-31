@@ -6,7 +6,7 @@ import { createMaterialAction, deleteMaterialAction, updateMaterialAction } from
 import { getMediaBlob } from "../../lib/client-store";
 import type { MaterialKind } from "../../lib/store";
 
-const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物"];
+const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物", "物品"];
 
 export default function MaterialsPage() {
   const { materials } = useData();
