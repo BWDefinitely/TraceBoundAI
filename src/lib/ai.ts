@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Material, IdeaCard, StoryShelf, FirstThought } from "./store";
+import type { Material, IdeaCard, FirstThought } from "./store";
 import type { AiSettings } from "./ai-settings";
 
 // AI 层：为「灵感炼金」联想两份素材 + 双 Agent 辅助故事创作。
@@ -8,9 +8,6 @@ import type { AiSettings } from "./ai-settings";
 // Provider / API key / Model / Base URL 通过前端「AI 设置」抽屉配置，存 IndexedDB。
 // 调用方需把 settings 作为参数传进来（见 askAgent 的 settings 参数）。
 
-// Persona / CreativeMode / CreativeModeInfo / CREATIVE_MODES / NarrativeMove /
-// NARRATIVE_MOVES 已抽到 ./ai-modes（不依赖 store.ts，可安全被 client 组件引用）。
-// 这里 re-export，保持服务端对 ai.ts 的老引用不变。
 export {
   CREATIVE_MODES,
   NARRATIVE_MOVES,
@@ -30,7 +27,6 @@ const SYSTEM_PROMPTS: Record<Persona, string> = {
     '你是 Story Coach（故事教练），专注于帮孩子把 Trace 变成叙事结构（主人公、目标、冲突、转折）。你给出多个方向选项让孩子挑，而不是替孩子完成。提问多于陈述。每次回复给 2-3 个不同方向的建议，让孩子有选择权。**严禁直接生成正文段落**。语言温暖、启发式、尊重孩子的选择。',
 };
 
-// 模式对应的附加提示（放在 system prompt 后面）
 const MODE_PROMPT_APPEND: Record<CreativeMode, string> = {
   'open-up':
     '\n\n【当前模式 · Open Up】孩子说"没想法 / 思路单一"。请从他采集的 Traces 里挑一条，给出 3 种不同解读：一种现实向、一种幻想向、一种情感向。每种都以"如果……会怎样？"结尾，邀请孩子接着想。控制在 200 字内。',
@@ -47,17 +43,13 @@ export interface AlchemyInput {
   materialBTitle: string;
   materialBKind: string;
   materialBText: string;
-  relationship?: string;   // 由儿童在合成前选择/描述的两条素材关系
+  relationship?: string;
 }
 
 export type AiProvider = "mock" | "anthropic" | "openai-compat";
 
 export function providerOf(s: AiSettings): AiProvider {
   return s.provider;
-}
-
-export function conditionOf(s: AiSettings) {
-  return s.condition;
 }
 
 export function modelLabelOf(s: AiSettings): string {
@@ -95,12 +87,10 @@ export async function brewAlchemy(input: AlchemyInput, settings: AiSettings): Pr
 export interface AgentContext {
   traces?: Material[];
   ideas?: IdeaCard[];
-  shelfSoFar?: Partial<StoryShelf>;
-  storyBodySnippet?: string;   // Look Again 需要故事正文最新片段
+  storyBodySnippet?: string;
   firstThoughts?: FirstThought[];
 }
 
-// 设计文档 §"Trace-Bound AI 条件"：AI 回应必须显示"基于照片 P3 和声音 S2"
 // 依据 mediaKind 生成一个短代号（P/S/R），并按 traces 出现顺序编号。
 function traceAttributionTag(traces: Material[]): string {
   if (traces.length === 0) return '';
@@ -113,52 +103,19 @@ function traceAttributionTag(traces: Material[]): string {
   return `基于 ${parts.join(' 和 ')}`;
 }
 
-// 设计文档 §"Topic-Based AI 条件"：AI 回应仍显示来源标签，但只引用孩子当前
-// 写下的内容——形如"基于你当前写下的'神秘地点'和'重复声音'"。这里从当前
-// Idea Cards（优先）或 Story Shelf 的文本里取 1-2 个短片段作为引用。
-function topicAttributionTag(context?: AgentContext): string {
-  const quote = (s: string) => `“${s.trim().replace(/\s+/g, '').slice(0, 12)}”`;
-  const picks: string[] = [];
-  for (const idea of context?.ideas ?? []) {
-    if (idea.content?.trim()) picks.push(quote(idea.content));
-    if (picks.length >= 2) break;
-  }
-  if (picks.length < 2 && context?.shelfSoFar) {
-    const slots = ['protagonist', 'goal', 'event', 'difficulty', 'turn', 'ending'] as const;
-    for (const k of slots) {
-      const text = context.shelfSoFar[k]?.text;
-      if (text?.trim()) picks.push(quote(text));
-      if (picks.length >= 2) break;
-    }
-  }
-  if (picks.length === 0) return '';
-  return `基于你当前写下的 ${picks.join(' 和 ')}`;
-}
-
 export async function askAgent(input: {
   persona: Persona;
-  mode?: CreativeMode;         // 可选：如果指定则叠加模式特定 prompt
+  mode?: CreativeMode;
   userPrompt: string;
   context?: AgentContext;
   settings: AiSettings;
 }): Promise<string> {
   const settings = input.settings;
   const provider = settings.provider;
-  const condition = settings.condition;
   let systemPrompt = SYSTEM_PROMPTS[input.persona];
   if (input.mode) systemPrompt += MODE_PROMPT_APPEND[input.mode];
 
-  // 设计文档 §"两个实验条件"：topic-based 条件下 AI 不能读取儿童原始
-  // 多模态痕迹（照片/声音/视频/现场语音）及其 pre-AI 想法，只能读统一任务 +
-  // 当前 Idea Card + Story Shelf + 正文。这里在 trace-bound 之外剥离 traces / firstThoughts。
-  const context: AgentContext | undefined =
-    condition === "topic-based" && input.context
-      ? { ...input.context, traces: undefined, firstThoughts: undefined }
-      : input.context;
-  if (condition === "topic-based") {
-    systemPrompt +=
-      "\n\n【当前实验条件 · Topic-Based】你看不到孩子的原始照片、声音、视频或现场语音，也看不到他在 AI 出现前记录的想法。你只能读取统一的故事任务、孩子当前写下的 Idea Card、Story Shelf 和正文。回应里不要假装看过任何现场素材，也不要使用「P3 / S2」这类痕迹代号。引用来源时，只引用孩子当前写下的内容，例如「基于你当前写下的‘神秘地点’和‘重复声音’」。";
-  }
+  const context = input.context;
 
   // 把 context 序列化到 userPrompt 前面
   let fullPrompt = input.userPrompt;
@@ -186,14 +143,6 @@ export async function askAgent(input: {
     const ideaList = context.ideas.map((i) => `- ${i.content.slice(0, 80)}...`).join('\n');
     fullPrompt = `【已有的 Idea Cards】\n${ideaList}\n\n${fullPrompt}`;
   }
-  if (context?.shelfSoFar) {
-    const shelf = context.shelfSoFar;
-    const slots = ['protagonist', 'goal', 'event', 'difficulty', 'turn', 'ending'] as const;
-    const filled = slots.filter((k) => shelf[k]?.text).map((k) => `${k}: ${shelf[k]!.text}`);
-    if (filled.length > 0) {
-      fullPrompt = `【故事已填写的部分】\n${filled.join('\n')}\n\n${fullPrompt}`;
-    }
-  }
   if (context?.storyBodySnippet && context.storyBodySnippet.trim()) {
     fullPrompt = `【故事正文的最新片段】\n${context.storyBodySnippet.slice(-400)}\n\n${fullPrompt}`;
   }
@@ -204,13 +153,8 @@ export async function askAgent(input: {
     else if (provider === "openai-compat") reply = await callOpenAiCompat(systemPrompt, fullPrompt, settings);
     else reply = mockAgentResponse(input.persona, input.mode, fullPrompt);
 
-    // 设计文档 §"两个实验条件"：两个条件都要显示来源标签，只是引用对象不同。
-    //   trace-bound：引用痕迹代号 —— "基于照片 P3 和声音 S2"。
-    //   topic-based：引用孩子当前写下的内容 —— "基于你当前写下的‘神秘地点’和‘重复声音’"。
-    const tag =
-      condition === "topic-based"
-        ? topicAttributionTag(context)
-        : traceAttributionTag(context?.traces ?? []);
+    // 添加来源标签
+    const tag = traceAttributionTag(context?.traces ?? []);
     if (tag && !reply.startsWith(tag)) {
       reply = `${tag}——\n\n${reply}`;
     }
@@ -218,10 +162,7 @@ export async function askAgent(input: {
   } catch (err) {
     console.error(`[ai] askAgent(${input.persona}) failed, falling back to mock:`, err);
     let reply = mockAgentResponse(input.persona, input.mode, fullPrompt, (err as Error).message);
-    const tag =
-      condition === "topic-based"
-        ? topicAttributionTag(context)
-        : traceAttributionTag(context?.traces ?? []);
+    const tag = traceAttributionTag(context?.traces ?? []);
     if (tag && !reply.startsWith(tag)) reply = `${tag}——\n\n${reply}`;
     return reply;
   }
@@ -237,7 +178,6 @@ async function callAnthropic(
   const model = settings.anthropic.model.trim() || "claude-opus-4-8";
   const baseURL = settings.anthropic.baseUrl.trim() || undefined;
 
-  // 纯前端调用：Anthropic SDK 默认禁止在浏览器直连，这里显式放开。
   const client = new Anthropic({ apiKey, baseURL, dangerouslyAllowBrowser: true });
   const resp = await client.messages.create({
     model,
@@ -303,7 +243,6 @@ function mockAgentResponse(
 ): string {
   const note = fallbackReason ? `（AI 调用失败，本次由本地模拟：${fallbackReason}）\n\n` : "";
 
-  // 模式优先
   if (mode === 'open-up') {
     return (
       note +
@@ -337,7 +276,6 @@ function mockAgentResponse(
     );
   }
 
-  // Persona-only fallback（比如 alchemy）
   if (persona === 'alchemy') {
     return (
       note +
@@ -371,4 +309,464 @@ function mockAgentResponse(
   }
 
   return note + "（未知 Persona）";
+}
+
+// ========== 图片识别（Vision） ==========
+
+// 决定读图用哪个 provider：优先 vision 自身配置（有 key），否则回退主引擎
+function resolveVisionProvider(settings: AiSettings): "anthropic" | "openai-compat" | "custom" | "mock" {
+  const v = settings.vision;
+  if (v && v.apiKey && v.provider) return v.provider;
+  if (settings.provider === "anthropic" && settings.anthropic.apiKey) return "anthropic";
+  if (settings.provider === "openai-compat" && settings.openaiCompat.apiKey) return "openai-compat";
+  return "mock";
+}
+
+export async function readImage(imageBlob: Blob, settings: AiSettings): Promise<string> {
+  // vision 未单独配置时，回退复用主引擎（anthropic / openai-compat）
+  const provider = resolveVisionProvider(settings);
+  console.log("[readImage] provider:", provider, "settings:", { 
+    visionApiKey: settings.vision.apiKey?.slice(0, 10) + "...",
+    anthropicApiKey: settings.anthropic.apiKey?.slice(0, 10) + "...",
+    visionModel: settings.vision.model,
+    anthropicModel: settings.anthropic.model,
+  });
+  const systemPrompt = 
+    "你是图片分析助手。用简洁、生动的语言描述图片内容，重点关注可能用于故事创作的元素：" +
+    "场景、人物、物品、氛围、情绪等。控制在 80-120 字。用中文回答。";
+  const userPrompt = "请描述这张图片，重点关注可以用于故事创作的元素。";
+
+  try {
+    let description: string;
+    if (provider === "anthropic") {
+      description = await callAnthropicVision(systemPrompt, userPrompt, imageBlob, settings);
+    } else if (provider === "openai-compat") {
+      description = await callOpenAiCompatVision(systemPrompt, userPrompt, imageBlob, settings);
+    } else if (provider === "custom") {
+      description = await callCustomVision(imageBlob, settings);
+    } else {
+      description = mockImageDescription();
+    }
+    return description;
+  } catch (err) {
+    console.error("[ai] readImage failed, falling back to mock:", err);
+    return mockImageDescription((err as Error).message);
+  }
+}
+
+// 安全地把 Blob 转 base64（分块避免 String.fromCharCode(...largeArray) 栈溢出）
+async function blobToBase64(imageBlob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await imageBlob.arrayBuffer());
+  let binary = "";
+  const chunkSize = 0x8000; // 32KB 每块
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function callAnthropicVision(
+  systemPrompt: string,
+  userPrompt: string,
+  imageBlob: Blob,
+  settings: AiSettings
+): Promise<string> {
+  const apiKey = settings.vision.apiKey || settings.anthropic.apiKey;
+  if (!apiKey) throw new Error("Vision API Key 未配置");
+  const model = settings.vision.model || settings.anthropic.model || "claude-sonnet-4-6";
+  const baseURL = settings.vision.baseUrl || settings.anthropic.baseUrl || undefined;
+
+  // 转换 Blob 为 base64
+  const base64 = await blobToBase64(imageBlob);
+  const mediaType = imageBlob.type || "image/jpeg";
+
+  const client = new Anthropic({ apiKey, baseURL, dangerouslyAllowBrowser: true });
+  const resp = await client.messages.create({
+    model,
+    max_tokens: 300,
+    system: systemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: userPrompt,
+          },
+        ],
+      },
+    ],
+  });
+
+  const text = resp.content
+    .map((c) => (c.type === "text" ? c.text : ""))
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+  if (!text) throw new Error("Claude Vision 返回内容为空");
+  return text;
+}
+
+async function callOpenAiCompatVision(
+  systemPrompt: string,
+  userPrompt: string,
+  imageBlob: Blob,
+  settings: AiSettings
+): Promise<string> {
+  const base = (settings.vision.baseUrl || settings.openaiCompat.baseUrl).trim().replace(/\/+$/, "");
+  const key = settings.vision.apiKey || settings.openaiCompat.apiKey;
+  const model = settings.vision.model || settings.openaiCompat.model;
+  if (!base || !key || !model) throw new Error("OpenAI Vision 配置不完整");
+
+  // 转换 Blob 为 base64 data URL
+  const base64 = await blobToBase64(imageBlob);
+  const dataUrl = `data:${imageBlob.type || "image/jpeg"};base64,${base64}`;
+
+  const resp = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 300,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: dataUrl } },
+            { type: "text", text: userPrompt },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`${resp.status} ${resp.statusText} ${body.slice(0, 200)}`);
+  }
+  const json = (await resp.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const text = json.choices?.[0]?.message?.content?.trim() ?? "";
+  if (!text) throw new Error("OpenAI Vision 返回内容为空");
+  return text;
+}
+
+async function callCustomVision(imageBlob: Blob, settings: AiSettings): Promise<string> {
+  const base = settings.vision.baseUrl.trim().replace(/\/+$/, "");
+  const key = settings.vision.apiKey;
+  if (!base) throw new Error("自定义 Vision API Base URL 未配置");
+
+  const formData = new FormData();
+  formData.append("image", imageBlob);
+  if (key) formData.append("api_key", key);
+
+  const resp = await fetch(`${base}/describe`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`${resp.status} ${resp.statusText} ${body.slice(0, 200)}`);
+  }
+  const json = (await resp.json()) as { description?: string };
+  const text = json.description?.trim() ?? "";
+  if (!text) throw new Error("自定义 Vision API 返回内容为空");
+  return text;
+}
+
+function mockImageDescription(fallbackReason?: string): string {
+  const descriptions = [
+    "照片中是一个安静的角落，阳光透过窗户洒在桌子上，桌上放着一本打开的书和一杯冒着热气的茶。",
+    "图片展示了一条铺满落叶的小路，两旁的树木枝叶交错，形成了一个天然的拱门。远处有模糊的人影。",
+    "画面中是一只橘猫蜷缩在窗台上，窗外是灰蒙蒙的天空，猫咪的眼睛半睁半闭，似乎在思考什么。",
+    "照片拍摄了一个老旧的书店，书架高耸入云，昏黄的灯光让整个空间充满了温暖而神秘的氛围。",
+    "图中是雨后的街道，地面反射着霓虹灯的光芒，远处有人撑着伞匆匆走过，留下模糊的身影。",
+  ];
+  const desc = descriptions[Math.floor(Math.random() * descriptions.length)];
+  return fallbackReason
+    ? `（AI 调用失败，本次由本地模拟：${fallbackReason}）\n\n${desc}`
+    : desc;
+}
+
+// ========== 图片生成（Image Generation） ==========
+
+// 决定生图用哪个 provider：优先 imageGeneration 自身配置（有 key），否则回退 openai-compat（若有key）
+function resolveImageGenProvider(settings: AiSettings): "dall-e-3" | "custom" | "mock" {
+  const ig = settings.imageGeneration;
+  
+  // 如果配置了生图 provider
+  if (ig && ig.provider) {
+    // dall-e-3 需要 apiKey
+    if (ig.provider === "dall-e-3" && ig.apiKey) {
+      return "dall-e-3";
+    }
+    // custom 只需要 baseUrl，apiKey 是可选的
+    if (ig.provider === "custom" && ig.baseUrl) {
+      return "custom";
+    }
+  }
+  
+  // 如果主引擎是 openai-compat 且有 key，尝试用 dall-e-3
+  if (settings.provider === "openai-compat" && settings.openaiCompat.apiKey) {
+    return "dall-e-3";
+  }
+  
+  return "mock";
+}
+
+export async function generateImage(prompt: string, settings: AiSettings): Promise<Blob> {
+  const provider = resolveImageGenProvider(settings);
+
+  try {
+    let blob: Blob;
+    if (provider === "dall-e-3") {
+      blob = await callDallE3(prompt, settings);
+    } else if (provider === "custom") {
+      blob = await callCustomImageGen(prompt, settings);
+    } else {
+      blob = mockGeneratedImage();
+    }
+    return blob;
+  } catch (err) {
+    console.error("[ai] generateImage failed, falling back to mock:", err);
+    return mockGeneratedImage();
+  }
+}
+
+async function callDallE3(prompt: string, settings: AiSettings): Promise<Blob> {
+  const base = settings.imageGeneration.baseUrl?.trim().replace(/\/+$/, "") || settings.openaiCompat.baseUrl || "https://api.openai.com/v1";
+  const key = settings.imageGeneration.apiKey || settings.openaiCompat.apiKey;
+  const model = settings.imageGeneration.model || "dall-e-3";
+  if (!key) throw new Error("DALL-E API Key 未配置");
+
+  const resp = await fetch(`${base}/images/generations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model,
+      prompt,
+      n: 1,
+      size: "1024x1024", // DALL-E 3 默认 1:1
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`${resp.status} ${resp.statusText} ${body.slice(0, 200)}`);
+  }
+  const json = (await resp.json()) as { data?: Array<{ url?: string }> };
+  const url = json.data?.[0]?.url;
+  if (!url) throw new Error("DALL-E 返回的图片 URL 为空");
+
+  // 下载图片
+  const imgResp = await fetch(url);
+  if (!imgResp.ok) throw new Error("下载生成的图片失败");
+  return await imgResp.blob();
+}
+
+async function callCustomImageGen(prompt: string, settings: AiSettings): Promise<Blob> {
+  const base = settings.imageGeneration.baseUrl?.trim().replace(/\/+$/, "");
+  const key = settings.imageGeneration.apiKey;
+  const model = settings.imageGeneration.model || "gemini-2.0-flash-lite-image";
+  if (!base) throw new Error("自定义生图 API Base URL 未配置");
+
+  // 检查是否应该使用OpenAI兼容格式（/v1/images/generations）
+  const isOpenAIFormat = base.includes('/v1') || model.includes('dall-e');
+  
+  if (isOpenAIFormat) {
+    // 使用OpenAI兼容格式
+    console.log("[callCustomImageGen] 使用OpenAI兼容格式");
+    return await callDallE3Style(prompt, base, key, model);
+  }
+
+  // 使用自定义格式
+  const body: any = { 
+    prompt,
+    model,
+    size: "1:1",
+  };
+  if (key) body.api_key = key;
+
+  console.log("[callCustomImageGen] 请求:", { url: `${base}/generate`, body });
+
+  const resp = await fetch(`${base}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => "");
+    console.error("[callCustomImageGen] HTTP错误:", resp.status, resp.statusText);
+    console.error("[callCustomImageGen] 错误响应体:", txt);
+    throw new Error(`HTTP ${resp.status} ${resp.statusText}: ${txt.slice(0, 300)}`);
+  }
+
+  // 假设返回 JSON 包含 image_url/image_base64 或直接返回图片 Blob
+  const contentType = resp.headers.get("content-type");
+  console.log("[callCustomImageGen] Content-Type:", contentType);
+  console.log("[callCustomImageGen] 所有响应头:", Array.from(resp.headers.entries()));
+
+  // 先尝试作为 JSON 解析
+  const clonedResp = resp.clone();
+  try {
+    const json = await resp.json();
+    console.log("[callCustomImageGen] JSON完整响应:", json);
+    console.log("[callCustomImageGen] JSON响应键:", Object.keys(json));
+    
+    // 尝试多种可能的字段名
+    const imageUrl = json.image_url || json.imageUrl || json.url;
+    const imageBase64 = json.image_base64 || json.imageBase64 || json.image || json.base64 || json.data;
+    
+    if (imageUrl) {
+      console.log("[callCustomImageGen] 下载图片:", imageUrl);
+      const imgResp = await fetch(imageUrl);
+      if (!imgResp.ok) throw new Error(`下载图片失败: HTTP ${imgResp.status}`);
+      const blob = await imgResp.blob();
+      console.log("[callCustomImageGen] 图片大小:", blob.size, "类型:", blob.type);
+      
+      // 验证是否是有效的图片
+      if (blob.size === 0) {
+        throw new Error("下载的图片大小为0");
+      }
+      
+      return blob;
+    } else if (imageBase64) {
+      console.log("[callCustomImageGen] 解码base64，长度:", imageBase64.length);
+      try {
+        // 移除可能的 data:image/png;base64, 前缀
+        const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
+        const binary = atob(cleanBase64);
+        const array = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+        const blob = new Blob([array], { type: "image/png" });
+        console.log("[callCustomImageGen] 解码后图片大小:", blob.size);
+        
+        // 验证解码后的大小
+        if (blob.size === 0) {
+          throw new Error("解码后的图片大小为0");
+        }
+        
+        return blob;
+      } catch (err) {
+        console.error("[callCustomImageGen] Base64解码错误:", err);
+        throw new Error(`Base64解码失败: ${(err as Error).message}`);
+      }
+    } else {
+      console.error("[callCustomImageGen] 未找到图片字段，完整响应:", JSON.stringify(json, null, 2));
+      throw new Error(`API返回的JSON中未找到图片数据。响应键: ${Object.keys(json).join(", ")}`);
+    }
+  } catch (jsonError) {
+    // JSON 解析失败，尝试作为 Blob
+    console.log("[callCustomImageGen] JSON解析失败，尝试作为Blob:", jsonError);
+    try {
+      const blob = await clonedResp.blob();
+      console.log("[callCustomImageGen] Blob大小:", blob.size, "类型:", blob.type);
+      
+      // 验证blob大小
+      if (blob.size === 0) {
+        throw new Error("返回的图片Blob大小为0");
+      }
+      
+      // 如果blob type为空，尝试根据内容推断
+      if (!blob.type || blob.type === 'application/octet-stream') {
+        console.log("[callCustomImageGen] Blob type为空或通用类型，创建为image/png");
+        return new Blob([blob], { type: "image/png" });
+      }
+      
+      return blob;
+    } catch (blobError) {
+      // 既不是JSON也不是Blob，读取原始文本
+      console.error("[callCustomImageGen] Blob解析也失败:", blobError);
+      const text = await clonedResp.clone().text();
+      console.error("[callCustomImageGen] 原始响应完整内容:", text);
+      console.error("[callCustomImageGen] 响应长度:", text.length);
+      
+      // 检查是否是HTML错误页面
+      if (text.toLowerCase().includes('<html') || text.toLowerCase().includes('<!doctype')) {
+        throw new Error(`API返回了HTML页面而不是图片。请检查：1) Base URL是否正确（应该是API端点，不是网页地址）2) 是否需要API Key 3) 路径是否正确（如 /v1/images/generations）。响应前200字符: ${text.slice(0, 200)}`);
+      }
+      
+      throw new Error(`无法解析API响应。Content-Type: ${contentType}，响应前200字符: ${text.slice(0, 200)}`);
+    }
+  }
+}
+
+// OpenAI兼容的图片生成调用
+async function callDallE3Style(prompt: string, base: string, key?: string, model?: string): Promise<Blob> {
+  if (!key) throw new Error("OpenAI格式的API需要提供API Key");
+  
+  const apiModel = model || "dall-e-3";
+  console.log("[callDallE3Style] 请求:", { base, model: apiModel });
+  
+  const resp = await fetch(`${base}/images/generations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model: apiModel,
+      prompt,
+      n: 1,
+      size: "1024x1024",
+    }),
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => "");
+    console.error("[callDallE3Style] HTTP错误:", resp.status, txt);
+    throw new Error(`HTTP ${resp.status}: ${txt.slice(0, 300)}`);
+  }
+
+  const json = (await resp.json()) as { data?: Array<{ url?: string; b64_json?: string }> };
+  console.log("[callDallE3Style] 响应:", json);
+  
+  const data = json.data?.[0];
+  if (!data) throw new Error("API返回的data字段为空");
+
+  // 优先使用URL
+  if (data.url) {
+    console.log("[callDallE3Style] 下载图片:", data.url);
+    const imgResp = await fetch(data.url);
+    if (!imgResp.ok) throw new Error(`下载图片失败: HTTP ${imgResp.status}`);
+    return await imgResp.blob();
+  }
+  
+  // 否则使用base64
+  if (data.b64_json) {
+    console.log("[callDallE3Style] 解码base64");
+    const binary = atob(data.b64_json);
+    const array = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+    return new Blob([array], { type: "image/png" });
+  }
+  
+  throw new Error("API返回的数据中既没有url也没有b64_json");
+}
+
+function mockGeneratedImage(): Blob {
+  // 返回一个 1x1 透明 PNG 作为占位
+  const base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const binary = atob(base64);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+  return new Blob([array], { type: "image/png" });
 }

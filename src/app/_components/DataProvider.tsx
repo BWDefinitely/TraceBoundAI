@@ -105,6 +105,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // 仅在客户端执行
+    if (typeof window === 'undefined') return;
+    
     reload().catch((err) => console.error("[data] initial load failed:", err));
     const handler = () => {
       reload().catch((err) => console.error("[data] reload failed:", err));

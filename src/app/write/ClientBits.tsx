@@ -2,28 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import {
-  createStoryAction,
-  deleteStoryAction,
-  reopenStoryAction,
-} from "../_actions";
+import { deleteStoryAction, reopenStoryAction } from "../_actions";
 
 export function NewStoryButton() {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
 
   return (
-    <button
-      className="btn-primary"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          const res = await createStoryAction("新故事");
-          router.push(`/write/${res.id}`);
-        })
-      }
-    >
-      {pending ? "创建中…" : "＋ 开一个新故事"}
+    <button className="btn-primary" onClick={() => router.push("/create/step1")}>
+      ＋ 开一个新故事
     </button>
   );
 }

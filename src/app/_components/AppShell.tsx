@@ -1,9 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, useMemo } from "react";
+import { createContext, useCallback, useContext, useState, useMemo, useEffect } from "react";
 import type { ReactNode } from "react";
 import type { Material } from "../../lib/types";
-import { Sidebar } from "./Sidebar";
 import { MaterialsDrawer } from "./MaterialsDrawer";
 import { AlchemyDrawer } from "./AlchemyDrawer";
 import { SettingsDrawer } from "./SettingsDrawer";
@@ -64,27 +63,63 @@ export function AppShell({ children }: Props) {
 
   return (
     <Ctx.Provider value={value}>
-      <div className="app-shell">
-        <Sidebar />
-        <main className="app-main">{children}</main>
-      </div>
+      <div style={{ minHeight: "100vh", background: "var(--sky)", display: "flex", flexDirection: "column" }}>
+        {/* 顶部导航栏 */}
+        <header
+          style={{
+            background: "white",
+            borderBottom: "1px solid var(--line)",
+            padding: "var(--space-4) var(--space-6)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <a href="/" style={{ fontSize: "1.3rem", fontWeight: 700, color: "var(--accent)", textDecoration: "none" }}>
+            Trace-Bound
+          </a>
+          <button
+            onClick={() => openDrawer("settings")}
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius)",
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+            }}
+          >
+            ⚙️ 设置
+          </button>
+        </header>
 
-      <MaterialsDrawer
-        open={open === "materials"}
-        onClose={close}
-        materials={materials}
-        firstThoughts={firstThoughts}
-        handoff={handoff}
-      />
-      <AlchemyDrawer
-        open={open === "alchemy"}
-        onClose={close}
-        materials={materials as Material[]}
-        history={alchemyHistory}
-        providerLabel={providerLabel}
-        handoff={handoff}
-      />
-      <SettingsDrawer open={open === "settings"} onClose={close} />
+        {/* 主内容区 */}
+        <main style={{ flex: 1, padding: "var(--space-6)", maxWidth: 1400, margin: "0 auto", width: "100%" }}>
+          {children}
+        </main>
+
+        {/* 抽屉 */}
+        {open === "materials" && (
+          <MaterialsDrawer
+            open={true}
+            onClose={close}
+            materials={materials}
+            firstThoughts={firstThoughts}
+            handoff={handoff}
+          />
+        )}
+        {open === "alchemy" && (
+          <AlchemyDrawer
+            open={true}
+            onClose={close}
+            materials={materials as Material[]}
+            history={alchemyHistory}
+            providerLabel={providerLabel}
+            handoff={handoff}
+          />
+        )}
+        {open === "settings" && <SettingsDrawer open={true} onClose={close} />}
+      </div>
     </Ctx.Provider>
   );
 }

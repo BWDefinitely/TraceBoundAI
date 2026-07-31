@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { StoryShelf } from "../../lib/store";
+import type { StoryStructure } from "../../lib/store";
 import { PageHeader } from "../_components/PageHeader";
 import { DeleteStoryButton, NewStoryButton, ReopenStoryButton } from "./ClientBits";
 import { useData, type StoryWithBody } from "../_components/DataProvider";
@@ -120,7 +120,7 @@ function StoriesGrid({
             {s.preview || "（还没有正文）"}
             {s.preview.length >= 140 ? "…" : ""}
           </p>
-          <ShelfMini shelf={s.shelf} />
+          <StructureMini structure={s.structure} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
             {completed ? (
               <>
@@ -134,7 +134,15 @@ function StoriesGrid({
               </>
             ) : (
               <>
-                <Link href={`/write/${s.id}`} className="btn-primary">
+                <Link
+                  href={`/create/step4?storyId=${s.id}`}
+                  className="btn-primary"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem("currentStoryId", s.id);
+                    }
+                  }}
+                >
                   继续写 →
                 </Link>
                 <DeleteStoryButton id={s.id} title={s.title} />
@@ -147,14 +155,13 @@ function StoriesGrid({
   );
 }
 
-function ShelfMini({ shelf }: { shelf: StoryShelf }) {
+function StructureMini({ structure }: { structure: StoryStructure }) {
+  const s = structure ?? {};
   const items = [
-    { key: "主", v: shelf.protagonist.text },
-    { key: "标", v: shelf.goal.text },
-    { key: "发", v: shelf.event.text },
-    { key: "困", v: shelf.difficulty.text },
-    { key: "转", v: shelf.turn.text },
-    { key: "终", v: shelf.ending.text },
+    { key: "起", v: s.qi?.text ?? "" },
+    { key: "承", v: s.cheng?.text ?? "" },
+    { key: "转", v: s.zhuan?.text ?? "" },
+    { key: "合", v: s.he?.text ?? "" },
   ];
   return (
     <div style={{ display: "flex", gap: "0.3rem" }}>

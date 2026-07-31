@@ -2,10 +2,10 @@
 // （见 client-store.ts）。此文件不再触碰 node:fs / node:crypto，可安全被
 // 客户端组件引用，部署到 Vercel（serverless 只读文件系统）也不会报错。
 
-export type { AiProvider, AiSettings, ExperimentCondition } from "./ai-settings";
-import type { AiProvider, AiSettings, ExperimentCondition } from "./ai-settings";
+export type { AiProvider, AiSettings } from "./ai-settings";
+import type { AiProvider, AiSettings } from "./ai-settings";
 
-export type MaterialKind = "观察" | "感受" | "想法" | "对话" | "声音" | "画面";
+export type MaterialKind = "观察" | "感受" | "想法" | "对话" | "人物";
 
 export interface Material {
   id: string;
@@ -23,6 +23,43 @@ export interface Material {
   mediaKind: 'text' | 'photo' | 'audio';  // 多模态：真实图片/音频存 IndexedDB 的 media store
 }
 
+// ========== 新版故事结构（起承转合 + 时地人事） ==========
+
+export interface StoryMetadata {
+  time: string;      // 时间
+  place: string;     // 地点
+  people: string[];  // 人物（可多个）
+  event: string;     // 事件
+}
+
+export interface StorySlot {
+  text: string;
+  linkedMaterials: string[];  // 拖拽到此槽位的素材卡 ID
+}
+
+export interface StoryStructure {
+  qi: StorySlot;      // 起
+  cheng: StorySlot;   // 承
+  zhuan: StorySlot;   // 转
+  he: StorySlot;      // 合
+}
+
+export interface Story {
+  id: string;
+  title: string;
+  metadata: StoryMetadata;    // 时间/地点/人物/事件
+  structure: StoryStructure;  // 起承转合，每个槽位可拖拽素材
+  body: string;               // 正文
+  aiWordCount: number;        // AI 生成字数
+  userWordCount: number;      // 用户自写字数
+  sceneImages?: Array<{ blobId: string; prompt: string; createdAt: string }>;      // 生成的场景图片（存 media store 的 Blob ID）
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+// ========== 旧版兼容（迁移用） ==========
+
 export interface StoryShelfSlot {
   text: string;
   sources: Array<{ kind: 'trace' | 'idea'; id: string }>;
@@ -37,7 +74,6 @@ export interface StoryShelf {
   ending: StoryShelfSlot;
 }
 
-// 设计文档 §"来源关系" 六类
 export type SourceRelation =
   | 'child-originated'
   | 'trace-elicited'
@@ -57,7 +93,8 @@ export interface DecisionEntry {
   timestamp: string;
 }
 
-export interface Story {
+// 旧版 Story 结构（仅用于迁移）
+export interface LegacyStory {
   id: string;
   title: string;
   shelf: StoryShelf;
@@ -77,6 +114,26 @@ export interface AlchemyRecord {
   materialBTitle: string;
   result: string;
   createdAt: string;
+}
+
+// ========== 批量图片导入 ==========
+
+export type ImportImageStatus = 'pending' | 'saved' | 'discarded';
+
+export interface ImportImage {
+  id: string;
+  blobId: string;           // 存在 media store 的 Blob ID
+  aiDescription: string;    // AI 读图生成的描述
+  status: ImportImageStatus;
+  iNoticed?: string;        // 用户填写的"我注意到"
+  itRemindsMe?: string;     // 用户填写的"它让我想到"
+}
+
+export interface ImportBatch {
+  id: string;
+  images: ImportImage[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 // 设计文档 §9 Idea Card 的确认机制
@@ -139,13 +196,31 @@ export type EventType =
 export interface EventLogEntry {
   id: string;
   type: EventType;
-  condition: ExperimentCondition;
   storyId?: string;
   payload: Record<string, unknown>;
   timestamp: string;
 }
 
 // ---------- 迁移辅助（被 client-store 复用） ----------
+
+export const emptyMetadata = (): StoryMetadata => ({
+  time: '',
+  place: '',
+  people: [],
+  event: '',
+});
+
+export const emptyStorySlot = (): StorySlot => ({
+  text: '',
+  linkedMaterials: [],
+});
+
+export const emptyStructure = (): StoryStructure => ({
+  qi: emptyStorySlot(),
+  cheng: emptyStorySlot(),
+  zhuan: emptyStorySlot(),
+  he: emptyStorySlot(),
+});
 
 export const emptyShelf = (): StoryShelf => ({
   protagonist: { text: '', sources: [] },
@@ -181,24 +256,32 @@ export function migrateIdeaCard(r: IdeaCard): IdeaCard {
 }
 
 export function migrateStory(r: any): Story {
-  let shelf = r.shelf;
-  if (!shelf && r.storyline) {
-    shelf = {
-      protagonist: { text: r.storyline.qi || '', sources: [] },
-      goal: { text: '', sources: [] },
-      event: { text: r.storyline.cheng || '', sources: [] },
-      difficulty: { text: r.storyline.zhuan || '', sources: [] },
-      turn: { text: '', sources: [] },
-      ending: { text: r.storyline.he || '', sources: [] },
+  // 如果已经是新版结构，直接返回
+  if (r.metadata && r.structure) {
+    return {
+      ...r,
+      metadata: r.metadata ?? emptyMetadata(),
+      structure: r.structure ?? emptyStructure(),
+      aiWordCount: r.aiWordCount ?? 0,
+      userWordCount: r.userWordCount ?? 0,
+      sceneImages: r.sceneImages ?? [],
+      completedAt: r.completedAt ?? null,
     };
   }
+
+  // 旧版迁移：shelf → structure（简化映射，起承转合为空）
   return {
-    ...r,
-    shelf: shelf ?? emptyShelf(),
+    id: r.id,
+    title: r.title || '未命名故事',
+    metadata: emptyMetadata(),
+    structure: emptyStructure(),
+    body: '',
+    aiWordCount: 0,
+    userWordCount: 0,
+    sceneImages: [],
+    createdAt: r.createdAt || new Date().toISOString(),
+    updatedAt: r.updatedAt || new Date().toISOString(),
     completedAt: r.completedAt ?? null,
-    linkedMaterialIds: r.linkedMaterialIds ?? [],
-    linkedIdeaIds: r.linkedIdeaIds ?? [],
-    decisionLedger: r.decisionLedger ?? [],
   };
 }
 

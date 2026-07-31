@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片生成API调试工具</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    input, button {
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input {
+      width: calc(100% - 22px);
+      margin-bottom: 10px;
+    }
+    button {
+      background: #0070f3;
+      color: white;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    img {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .error { color: red; }
+    .success { color: green; }
+  </style>
+</head>
+<body>
+  <h1>🎨 图片生成API调试工具</h1>
+  
+  <div class="card">
+    <h3>API 配置</h3>
+    <input type="text" id="baseUrl" placeholder="Base URL (例如: https://api.example.com)">
+    <input type="text" id="apiKey" placeholder="API Key (可选)">
+    <input type="text" id="model" placeholder="模型名称" value="gemini-2.0-flash-lite-image">
+    <input type="text" id="prompt" placeholder="提示词" value="一个简单的红色圆圈">
+    <button onclick="testAPI()" id="testBtn">开始测试</button>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none;">
+    <h3>响应详情</h3>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function testAPI() {
+      const baseUrl = document.getElementById('baseUrl').value.trim().replace(/\/+$/, '');
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const model = document.getElementById('model').value.trim();
+      const prompt = document.getElementById('prompt').value.trim();
+      
+      if (!baseUrl) {
+        alert('请输入 Base URL');
+        return;
+      }
+      
+      const resultCard = document.getElementById('resultCard');
+      const result = document.getElementById('result');
+      const testBtn = document.getElementById('testBtn');
+      
+      resultCard.style.display = 'block';
+      result.innerHTML = '<p>⏳ 正在请求...</p>';
+      testBtn.disabled = true;
+      
+      try {
+        const body = { prompt, model, size: "1:1" };
+        if (apiKey) body.api_key = apiKey;
+        
+        const url = baseUrl + '/generate';
+        console.log('请求URL:', url);
+        console.log('请求体:', body);
+        
+        result.innerHTML = '<pre>请求URL: ' + url + '\n请求体: ' + JSON.stringify(body, null, 2) + '</pre>';
+        
+        const startTime = Date.now();
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const duration = Date.now() - startTime;
+        
+        console.log('响应状态:', resp.status, resp.statusText);
+        console.log('Content-Type:', resp.headers.get('content-type'));
+        
+        let statusClass = resp.ok ? 'success' : 'error';
+        result.innerHTML += '<pre class="' + statusClass + '">响应状态: ' + resp.status + ' ' + resp.statusText + '\n耗时: ' + duration + 'ms\nContent-Type: ' + resp.headers.get('content-type') + '</pre>';
+        
+        if (!resp.ok) {
+          const text = await resp.text();
+          result.innerHTML += '<pre class="error">错误信息:\n' + text + '</pre>';
+          return;
+        }
+        
+        const contentType = resp.headers.get('content-type') || '';
+        
+        if (contentType.includes('application/json')) {
+          const json = await resp.json();
+          console.log('JSON响应:', json);
+          result.innerHTML += '<pre>JSON响应:\n' + JSON.stringify(json, null, 2) + '</pre>';
+          
+          const imageUrl = json.image_url || json.imageUrl || json.url;
+          const imageBase64 = json.image_base64 || json.imageBase64 || json.image || json.base64 || json.data;
+          
+          if (imageUrl) {
+            result.innerHTML += '<p class="success">✅ 找到图片URL: ' + imageUrl + '</p>';
+            result.innerHTML += '<img src="' + imageUrl + '" alt="生成的图片">';
+          } else if (imageBase64) {
+            result.innerHTML += '<p class="success">✅ 找到Base64数据 (长度: ' + imageBase64.length + ')</p>';
+            try {
+              const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+              const dataUrl = imageBase64.startsWith('data:') ? imageBase64 : 'data:image/png;base64,' + cleanBase64;
+              result.innerHTML += '<img src="' + dataUrl + '" alt="生成的图片">';
+            } catch (err) {
+              result.innerHTML += '<p class="error">❌ Base64解码失败: ' + err.message + '</p>';
+            }
+          } else {
+            result.innerHTML += '<p class="error">❌ 未找到图片数据。响应键: ' + Object.keys(json).join(', ') + '</p>';
+          }
+        } else if (contentType.includes('image/') || contentType.includes('application/octet-stream')) {
+          const blob = await resp.blob();
+          console.log('图片Blob:', blob.size, 'bytes,', blob.type);
+          result.innerHTML += '<p class="success">✅ 收到图片Blob (' + (blob.size/1024).toFixed(1) + ' KB, ' + blob.type + ')</p>';
+          const url = URL.createObjectURL(blob);
+          result.innerHTML += '<img src="' + url + '" alt="生成的图片">';
+        } else {
+          const text = await resp.text();
+          console.log('原始响应:', text);
+          // 安全地显示HTML，使用textContent而不是innerHTML
+          const pre = document.createElement('pre');
+          pre.className = 'error';
+          pre.textContent = '未知Content-Type: ' + contentType + '\n\n原始响应:\n' + text.slice(0, 2000);
+          result.appendChild(pre);
+        }
+        
+      } catch (err) {
+        console.error('请求失败:', err);
+        result.innerHTML += '<pre class="error">❌ 请求失败: ' + err.message + '</pre>';
+      } finally {
+        testBtn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

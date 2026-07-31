@@ -15,7 +15,9 @@ import {
   idbSet,
   idbDel,
 } from "./idb";
-import type { AiProvider, AiSettings, ExperimentCondition } from "./ai-settings";
+import type { AiProvider, AiSettings } from "./ai-settings";
+import { defaultAiSettings } from "./ai-settings";
+import { loadSecureSettings, saveSecureSettings } from "./secure-settings";
 import {
   type Material,
   type MaterialKind,
@@ -30,7 +32,14 @@ import {
   type DecisionEntry,
   type EventType,
   type EventLogEntry,
+  type ImportBatch,
+  type ImportImage,
+  type ImportImageStatus,
+  type StoryMetadata,
+  type StoryStructure,
   emptyShelf,
+  emptyMetadata,
+  emptyStructure,
   migrateMaterial,
   migrateIdeaCard,
   migrateStory,
@@ -229,22 +238,23 @@ export async function getStory(id: string): Promise<Story | null> {
 export async function createStory(input: {
   title?: string;
   body?: string;
-  shelf?: StoryShelf;
-  linkedMaterialIds?: string[];
-  linkedIdeaIds?: string[];
+  metadata?: StoryMetadata;
+  structure?: StoryStructure;
 }): Promise<Story> {
   const id = uuid();
   const now = nowIso();
   const s: Story = {
     id,
     title: (input.title ?? "").trim() || "新故事",
-    shelf: input.shelf ?? emptyShelf(),
+    metadata: input.metadata ?? emptyMetadata(),
+    structure: input.structure ?? emptyStructure(),
+    body: input.body ?? "",
+    aiWordCount: 0,
+    userWordCount: 0,
+    sceneImages: [],
     createdAt: now,
     updatedAt: now,
-    linkedMaterialIds: input.linkedMaterialIds ?? [],
-    linkedIdeaIds: input.linkedIdeaIds ?? [],
     completedAt: null,
-    decisionLedger: [],
   };
   await idbSet(STORES.storyBodies, id, input.body ?? "");
   await idbPut(STORES.stories, s);
@@ -273,20 +283,22 @@ export async function updateStory(
   patch: {
     title?: string;
     body?: string;
-    shelf?: Partial<StoryShelf>;
-    linkedMaterialIds?: string[];
-    linkedIdeaIds?: string[];
-    decisionLedger?: DecisionEntry[];
+    metadata?: Partial<StoryMetadata>;
+    structure?: Partial<StoryStructure>;
+    aiWordCount?: number;
+    userWordCount?: number;
+    sceneImages?: Array<{ blobId: string; prompt: string; createdAt: string }>;
   }
 ): Promise<Story | null> {
   const s = await getStory(id);
   if (!s) return null;
   const next: Story = { ...s };
   if (patch.title !== undefined) next.title = patch.title.trim() || "新故事";
-  if (patch.shelf) next.shelf = { ...next.shelf, ...patch.shelf };
-  if (patch.linkedMaterialIds !== undefined) next.linkedMaterialIds = patch.linkedMaterialIds;
-  if (patch.linkedIdeaIds !== undefined) next.linkedIdeaIds = patch.linkedIdeaIds;
-  if (patch.decisionLedger !== undefined) next.decisionLedger = patch.decisionLedger;
+  if (patch.metadata) next.metadata = { ...next.metadata, ...patch.metadata };
+  if (patch.structure) next.structure = { ...next.structure, ...patch.structure };
+  if (patch.aiWordCount !== undefined) next.aiWordCount = patch.aiWordCount;
+  if (patch.userWordCount !== undefined) next.userWordCount = patch.userWordCount;
+  if (patch.sceneImages !== undefined) next.sceneImages = patch.sceneImages;
   next.updatedAt = nowIso();
   await idbPut(STORES.stories, next);
   if (patch.body !== undefined) await idbSet(STORES.storyBodies, id, patch.body);
@@ -386,14 +398,12 @@ export async function listEvents(): Promise<EventLogEntry[]> {
 
 export async function appendEvent(input: {
   type: EventType;
-  condition: ExperimentCondition;
   storyId?: string;
   payload?: Record<string, unknown>;
 }): Promise<EventLogEntry> {
   const entry: EventLogEntry = {
     id: uuid(),
     type: input.type,
-    condition: input.condition,
     storyId: input.storyId,
     payload: input.payload ?? {},
     timestamp: nowIso(),
@@ -414,27 +424,46 @@ const SETTINGS_KEY = "ai";
 function defaultAiSettings(): AiSettings {
   return {
     provider: "mock",
-    condition: "trace-bound",
-    anthropic: { apiKey: "", model: "claude-opus-4-8", baseUrl: "" },
-    openaiCompat: { apiKey: "", model: "", baseUrl: "" },
+    anthropic: { apiKey: "", model: "claude-sonnet-4-6", baseUrl: "" },
+    openaiCompat: { apiKey: "", model: "gpt-4o-mini", baseUrl: "" },
+    vision: {
+      provider: "anthropic",
+      apiKey: "",
+      model: "claude-sonnet-4-6",
+      baseUrl: "",
+    },
+    imageGeneration: {
+      provider: "custom",
+      apiKey: "",
+      model: "gemini-2.0-flash-lite-image",
+      baseUrl: "",
+    },
   };
 }
 
 export async function getAiSettings(): Promise<AiSettings> {
+  // 优先从加密存储读取
+  try {
+    const secureSettings = await loadSecureSettings();
+    if (secureSettings) {
+      return secureSettings;
+    }
+  } catch (err) {
+    console.warn("读取加密设置失败，尝试从 IndexedDB 读取:", err);
+  }
+  
+  // 回退到 IndexedDB（旧版本兼容）
   const fromDb = await idbGet<Partial<AiSettings>>(STORES.settings, SETTINGS_KEY);
   const defaults = defaultAiSettings();
   if (!fromDb) return defaults;
-  return {
+  
+  const settings: AiSettings = {
     provider:
       fromDb.provider === "anthropic" ||
       fromDb.provider === "openai-compat" ||
       fromDb.provider === "mock"
         ? fromDb.provider
         : defaults.provider,
-    condition:
-      fromDb.condition === "trace-bound" || fromDb.condition === "topic-based"
-        ? fromDb.condition
-        : defaults.condition,
     anthropic: {
       apiKey: fromDb.anthropic?.apiKey ?? defaults.anthropic.apiKey,
       model: fromDb.anthropic?.model ?? defaults.anthropic.model,
@@ -445,14 +474,37 @@ export async function getAiSettings(): Promise<AiSettings> {
       model: fromDb.openaiCompat?.model ?? defaults.openaiCompat.model,
       baseUrl: fromDb.openaiCompat?.baseUrl ?? defaults.openaiCompat.baseUrl,
     },
+    vision: {
+      provider: fromDb.vision?.provider ?? defaults.vision.provider,
+      apiKey: fromDb.vision?.apiKey ?? defaults.vision.apiKey,
+      model: fromDb.vision?.model ?? defaults.vision.model,
+      baseUrl: fromDb.vision?.baseUrl ?? defaults.vision.baseUrl,
+    },
+    imageGeneration: {
+      provider: fromDb.imageGeneration?.provider ?? defaults.imageGeneration.provider,
+      apiKey: fromDb.imageGeneration?.apiKey ?? defaults.imageGeneration.apiKey,
+      model: fromDb.imageGeneration?.model ?? defaults.imageGeneration.model,
+      baseUrl: fromDb.imageGeneration?.baseUrl ?? defaults.imageGeneration.baseUrl,
+    },
   };
+  
+  // 迁移到加密存储
+  try {
+    await saveSecureSettings(settings);
+    // 删除旧的 IndexedDB 数据
+    await idbDel(STORES.settings, SETTINGS_KEY);
+    console.log("已将设置迁移到加密存储");
+  } catch (err) {
+    console.warn("迁移设置失败:", err);
+  }
+  
+  return settings;
 }
 
 export async function saveAiSettings(patch: Partial<AiSettings>): Promise<AiSettings> {
   const current = await getAiSettings();
   const next: AiSettings = {
     provider: patch.provider ?? current.provider,
-    condition: patch.condition ?? current.condition,
     anthropic: {
       apiKey: patch.anthropic?.apiKey ?? current.anthropic.apiKey,
       model: patch.anthropic?.model ?? current.anthropic.model,
@@ -463,7 +515,79 @@ export async function saveAiSettings(patch: Partial<AiSettings>): Promise<AiSett
       model: patch.openaiCompat?.model ?? current.openaiCompat.model,
       baseUrl: patch.openaiCompat?.baseUrl ?? current.openaiCompat.baseUrl,
     },
+    vision: {
+      provider: patch.vision?.provider ?? current.vision.provider,
+      apiKey: patch.vision?.apiKey ?? current.vision.apiKey,
+      model: patch.vision?.model ?? current.vision.model,
+      baseUrl: patch.vision?.baseUrl ?? current.vision.baseUrl,
+    },
+    imageGeneration: {
+      provider: patch.imageGeneration?.provider ?? current.imageGeneration.provider,
+      apiKey: patch.imageGeneration?.apiKey ?? current.imageGeneration.apiKey,
+      model: patch.imageGeneration?.model ?? current.imageGeneration.model,
+      baseUrl: patch.imageGeneration?.baseUrl ?? current.imageGeneration.baseUrl,
+    },
   };
-  await idbSet(STORES.settings, SETTINGS_KEY, next);
+  
+  // 保存到加密存储
+  await saveSecureSettings(next);
+  
   return next;
+}
+
+// ---------- import batch ----------
+
+export async function listImportBatches(): Promise<ImportBatch[]> {
+  const rows = await idbGetAll<ImportBatch>(STORES.importBatches);
+  return rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+export async function getImportBatch(id: string): Promise<ImportBatch | null> {
+  const all = await listImportBatches();
+  return all.find((b) => b.id === id) ?? null;
+}
+
+export async function createImportBatch(images: ImportImage[]): Promise<ImportBatch> {
+  const batch: ImportBatch = {
+    id: uuid(),
+    images,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  await idbPut(STORES.importBatches, batch);
+  return batch;
+}
+
+export async function updateImportBatch(
+  id: string,
+  patch: { images?: ImportImage[] }
+): Promise<ImportBatch | null> {
+  const batch = await getImportBatch(id);
+  if (!batch) return null;
+  const next: ImportBatch = {
+    ...batch,
+    images: patch.images ?? batch.images,
+    updatedAt: nowIso(),
+  };
+  await idbPut(STORES.importBatches, next);
+  return next;
+}
+
+export async function deleteImportBatch(id: string): Promise<void> {
+  await idbDelete(STORES.importBatches, id);
+}
+
+// ---------- Media Blob 存储 ----------
+
+export async function saveMediaBlob(id: string, blob: Blob): Promise<void> {
+  await idbSet(STORES.media, id, blob);
+}
+
+export async function getMediaBlob(id: string): Promise<Blob | null> {
+  const blob = await idbGet<Blob>(STORES.media, id);
+  return blob ?? null;
+}
+
+export async function deleteMediaBlob(id: string): Promise<void> {
+  await idbDelete(STORES.media, id);
 }

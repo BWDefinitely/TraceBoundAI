@@ -37,7 +37,6 @@ export function ReflectForm({ stories, reflections, materials, initialStoryId }:
 
   const storyMap = new Map(stories.map((s) => [s.id, s.title]));
   const selectedStory = storyId ? stories.find((s) => s.id === storyId) : null;
-  const ledger = selectedStory?.decisionLedger ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
@@ -47,14 +46,8 @@ export function ReflectForm({ stories, reflections, materials, initialStoryId }:
           onSaved={() => setFlash("已保存 Story Journey 回顾")}
         />
       )}
-      {selectedStory && ledger.length > 0 && (
-        <DecisionLedgerPanel entries={ledger} />
-      )}
       {selectedStory && (
         <TraceStoryMappingPanel story={selectedStory} materials={materials} />
-      )}
-      {selectedStory && ledger.some((e) => e.action === "rejected") && (
-        <RejectedSuggestionsPanel entries={ledger.filter((e) => e.action === "rejected")} />
       )}
       <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "var(--space-6)" }}>
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
@@ -404,8 +397,11 @@ function TraceStoryMappingPanel({ story, materials }: { story: Story; materials:
   const usage = useMemo(() => {
     // traceId -> { title, slots: [slotKey], onlyLinked: boolean }
     const acc = new Map<string, { title: string; slots: string[]; onlyLinked: boolean }>();
+    const storyAny = story as any;
+    const shelf = storyAny.shelf ?? {};
     for (const key of Object.keys(SLOT_LABELS)) {
-      const slot = story.shelf[key as keyof typeof story.shelf];
+      const slot = shelf[key as keyof typeof shelf];
+      if (!slot?.sources) continue;
       for (const s of slot.sources) {
         if (s.kind !== "trace") continue;
         const t = traceMap.get(s.id);
@@ -415,7 +411,8 @@ function TraceStoryMappingPanel({ story, materials }: { story: Story; materials:
         acc.set(s.id, entry);
       }
     }
-    for (const tid of story.linkedMaterialIds) {
+    const linkedMaterialIds = storyAny.linkedMaterialIds ?? [];
+    for (const tid of linkedMaterialIds) {
       if (acc.has(tid)) continue;
       const t = traceMap.get(tid);
       if (!t) continue;

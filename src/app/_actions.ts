@@ -41,12 +41,10 @@ import type {
   MaterialKind,
   EventType,
   IdeaCard,
-  StoryShelf,
-  DecisionEntry,
 } from "../lib/store";
-import type { AiSettings, AiProvider, ExperimentCondition } from "../lib/ai-settings";
+import type { AiSettings, AiProvider } from "../lib/ai-settings";
 
-const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "声音", "画面"];
+const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物"];
 const MEDIA_KINDS = ["text", "photo", "audio"] as const;
 type MediaKind = (typeof MEDIA_KINDS)[number];
 
@@ -58,15 +56,14 @@ function refreshAll() {
   }
 }
 
-// CHI 埋点：把事件写进事件日志，读取当前实验条件一并记录，失败不影响主流程。
+// CHI 埋点：把事件写进事件日志，失败不影响主流程。
 async function logEvent(
   type: EventType,
   payload?: Record<string, unknown>,
   storyId?: string
 ) {
   try {
-    const settings = await getAiSettings();
-    await appendEvent({ type, condition: settings.condition, storyId, payload });
+    await appendEvent({ type, storyId, payload });
   } catch (err) {
     console.error(`[events] failed to log ${type}:`, err);
   }
@@ -231,9 +228,11 @@ export async function saveStoryAction(
   patch: {
     title?: string;
     body?: string;
-    shelf?: Partial<StoryShelf>;
-    linkedMaterialIds?: string[];
-    linkedIdeaIds?: string[];
+    metadata?: any;
+    structure?: any;
+    aiWordCount?: number;
+    userWordCount?: number;
+    sceneImages?: Array<{ blobId: string; prompt: string; createdAt: string }>;
   }
 ) {
   await updateStory(id, patch);
@@ -258,19 +257,6 @@ export async function reopenStoryAction(id: string) {
   return s;
 }
 
-export async function appendDecisionAction(
-  storyId: string,
-  entry: Omit<DecisionEntry, "timestamp">
-) {
-  const s = await getStory(storyId);
-  if (!s) return;
-  const newEntry: DecisionEntry = { ...entry, timestamp: new Date().toISOString() };
-  const ledger = [...(s.decisionLedger ?? []), newEntry];
-  await updateStory(storyId, { decisionLedger: ledger });
-  await logEvent("decision", { ...newEntry }, storyId);
-  refreshAll();
-}
-
 // ---------- alchemy ----------
 
 export async function brewAction(input: { aId: string; bId: string; relationship?: string }) {
@@ -283,16 +269,10 @@ export async function brewAction(input: { aId: string; bId: string; relationship
     return { ok: false as const, message: "其中一份素材没有开启「允许 AI 读取」。" };
   }
 
-  // 设计文档 §"两个实验条件"：Story Fusion Board 在两个条件下都相同（都可用），
-  // 唯一差异是 AI 是否能直接访问并引用孩子的原始多模态痕迹及其来源。
   const settings = await getAiSettings();
-  const traceBound = settings.condition === "trace-bound";
-
-  const [aText, bText] = traceBound
-    ? await Promise.all([readMaterialBody(a.id), readMaterialBody(b.id)])
-    : ["", ""];
+  const [aText, bText] = await Promise.all([readMaterialBody(a.id), readMaterialBody(b.id)]);
+  
   const composeText = (m: typeof a, body: string) => {
-    if (!traceBound) return "";
     const parts: string[] = [];
     if (body.trim()) parts.push(body);
     if (m.iNoticed) parts.push(`我注意到：${m.iNoticed}`);
@@ -300,6 +280,7 @@ export async function brewAction(input: { aId: string; bId: string; relationship
     if (m.stillUnsure) parts.push(`还不确定：${m.stillUnsure}`);
     return parts.join("\n");
   };
+  
   const result = await brewAlchemy(
     {
       materialATitle: a.title,
@@ -369,7 +350,6 @@ export async function askAgentAction(input: {
     context: {
       traces: traces.length > 0 ? traces : undefined,
       ideas: ideas.length > 0 ? ideas : undefined,
-      shelfSoFar: story?.shelf,
       storyBodySnippet: body || undefined,
       firstThoughts: firstThoughts.length > 0 ? firstThoughts : undefined,
     },
@@ -471,14 +451,14 @@ export async function getAiSettingsAction(): Promise<AiSettings> {
 
 export async function saveAiSettingsAction(patch: {
   provider?: AiProvider;
-  condition?: ExperimentCondition;
   anthropic?: { apiKey?: string; model?: string; baseUrl?: string };
   openaiCompat?: { apiKey?: string; model?: string; baseUrl?: string };
+  vision?: { provider?: string; apiKey?: string; model?: string; baseUrl?: string };
+  imageGeneration?: { provider?: string; apiKey?: string; model?: string; baseUrl?: string };
 }): Promise<{ ok: true; settings: AiSettings }> {
   const current = await getAiSettings();
   const next = await saveAiSettings({
     provider: patch.provider,
-    condition: patch.condition,
     anthropic: patch.anthropic
       ? {
           apiKey: patch.anthropic.apiKey ?? current.anthropic.apiKey,
@@ -491,6 +471,22 @@ export async function saveAiSettingsAction(patch: {
           apiKey: patch.openaiCompat.apiKey ?? current.openaiCompat.apiKey,
           model: patch.openaiCompat.model ?? current.openaiCompat.model,
           baseUrl: patch.openaiCompat.baseUrl ?? current.openaiCompat.baseUrl,
+        }
+      : undefined,
+    vision: patch.vision
+      ? {
+          provider: (patch.vision.provider as any) ?? current.vision.provider,
+          apiKey: patch.vision.apiKey ?? current.vision.apiKey,
+          model: patch.vision.model ?? current.vision.model,
+          baseUrl: patch.vision.baseUrl ?? current.vision.baseUrl,
+        }
+      : undefined,
+    imageGeneration: patch.imageGeneration
+      ? {
+          provider: (patch.imageGeneration.provider as any) ?? current.imageGeneration.provider,
+          apiKey: patch.imageGeneration.apiKey ?? current.imageGeneration.apiKey,
+          model: patch.imageGeneration.model ?? current.imageGeneration.model,
+          baseUrl: patch.imageGeneration.baseUrl ?? current.imageGeneration.baseUrl,
         }
       : undefined,
   });

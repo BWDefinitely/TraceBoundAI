@@ -8,7 +8,7 @@
 // 只在浏览器环境运行。SSR / 测试时若无 indexedDB，会在调用处兜底。
 
 const DB_NAME = "tracebound";
-const DB_VERSION = 1;
+const DB_VERSION = 2;  // 升级版本以添加 importBatches store
 
 // 所有 object store 名称
 export const STORES = {
@@ -19,6 +19,7 @@ export const STORES = {
   reflections: "reflections",
   firstThoughts: "firstThoughts",
   events: "events",
+  importBatches: "importBatches",  // 批量导入记录
   // 正文（纯文本）：key = 记录 id，value = string
   materialBodies: "materialBodies",
   storyBodies: "storyBodies",
@@ -38,6 +39,7 @@ const KEYED_STORES: StoreName[] = [
   STORES.alchemy,
   STORES.reflections,
   STORES.events,
+  STORES.importBatches,
 ];
 // firstThoughts 用 traceId 作主键
 // 其余（bodies / media / settings）是纯 key-value

@@ -9,7 +9,7 @@ describe("materials (Trace) CRUD", () => {
   it("创建后能读回，且默认 aiAllowed=true / mediaKind=text", async () => {
     const m = await store.createMaterial({
       title: "树根裂缝",
-      kind: "画面",
+      kind: "观察",
       iNoticed: "树根旁有一道裂缝",
       body: "现场正文",
     });
@@ -25,7 +25,7 @@ describe("materials (Trace) CRUD", () => {
   });
 
   it("更新 aiAllowed 与三问字段", async () => {
-    const m = await store.createMaterial({ title: "滴水声", kind: "声音" });
+    const m = await store.createMaterial({ title: "滴水声", kind: "对话" });
     const updated = await store.updateMaterial(m.id, { aiAllowed: false, itRemindsMe: "像敲门" });
     expect(updated?.aiAllowed).toBe(false);
     expect(updated?.itRemindsMe).toBe("像敲门");
@@ -49,14 +49,18 @@ describe("first thoughts (Pre-AI baseline)", () => {
   });
 });
 
-describe("stories 6-slot 迁移", () => {
-  it("createStory 生成 6 个空槽位", async () => {
+describe("stories 新结构（metadata + structure）", () => {
+  it("createStory 生成空的 metadata 和 structure", async () => {
     const s = await store.createStory({ title: "新故事" });
-    expect(Object.keys(s.shelf).sort()).toEqual(
-      ["difficulty", "ending", "event", "goal", "protagonist", "turn"].sort()
-    );
+    expect(s.metadata).toBeDefined();
+    expect(s.structure).toBeDefined();
+    expect(s.structure.qi).toBeDefined();
+    expect(s.structure.cheng).toBeDefined();
+    expect(s.structure.zhuan).toBeDefined();
+    expect(s.structure.he).toBeDefined();
     expect(s.completedAt).toBeNull();
-    expect(s.decisionLedger).toEqual([]);
+    expect(s.aiWordCount).toBe(0);
+    expect(s.userWordCount).toBe(0);
   });
 
   it("completeStory / reopenStory 切换完成状态", async () => {
@@ -67,22 +71,15 @@ describe("stories 6-slot 迁移", () => {
     expect(reopened?.completedAt).toBeNull();
   });
 
-  it("appendDecision 通过 updateStory 累积 ledger", async () => {
-    const s = await store.createStory({ title: "账本测试" });
+  it("updateStory 可更新 metadata 和 structure", async () => {
+    const s = await store.createStory({ title: "元数据测试" });
     await store.updateStory(s.id, {
-      decisionLedger: [
-        {
-          slotKey: "protagonist",
-          proposer: "child",
-          fromTrace: true,
-          action: "adopted",
-          timestamp: new Date().toISOString(),
-        },
-      ],
+      metadata: { time: "2024年春天", place: "公园", people: ["小明"], event: "发现秘密" },
+      structure: { qi: { text: "开始了", linkedMaterials: [] } },
     });
     const got = await store.getStory(s.id);
-    expect(got?.decisionLedger).toHaveLength(1);
-    expect(got?.decisionLedger[0].slotKey).toBe("protagonist");
+    expect(got?.metadata.time).toBe("2024年春天");
+    expect(got?.structure.qi.text).toBe("开始了");
   });
 });
 
@@ -100,8 +97,8 @@ describe("idea cards 迁移", () => {
 describe("CHI event log", () => {
   it("appendEvent 追加并可导出为 NDJSON", async () => {
     const before = (await store.listEvents()).length;
-    await store.appendEvent({ type: "trace-capture", condition: "trace-bound", payload: { traceId: "x" } });
-    await store.appendEvent({ type: "agent-ask", condition: "topic-based", payload: { persona: "story-coach" } });
+    await store.appendEvent({ type: "trace-capture", payload: { traceId: "x" } });
+    await store.appendEvent({ type: "agent-ask", payload: { persona: "story-coach" } });
     const after = await store.listEvents();
     expect(after.length).toBe(before + 2);
 
@@ -114,17 +111,17 @@ describe("CHI event log", () => {
   });
 });
 
-describe("AI settings 实验条件", () => {
-  it("默认 condition 为 trace-bound", async () => {
+describe("AI settings", () => {
+  it("默认 provider 为 mock", async () => {
     const s = await store.getAiSettings();
-    expect(["trace-bound", "topic-based"]).toContain(s.condition);
+    expect(["mock", "anthropic", "openai-compat"]).toContain(s.provider);
   });
 
-  it("saveAiSettings 能切换 condition 并持久化", async () => {
-    await store.saveAiSettings({ condition: "topic-based" });
+  it("saveAiSettings 能切换 provider 并持久化", async () => {
+    await store.saveAiSettings({ provider: "anthropic" });
     const s = await store.getAiSettings();
-    expect(s.condition).toBe("topic-based");
-    await store.saveAiSettings({ condition: "trace-bound" });
-    expect((await store.getAiSettings()).condition).toBe("trace-bound");
+    expect(s.provider).toBe("anthropic");
+    await store.saveAiSettings({ provider: "mock" });
+    expect((await store.getAiSettings()).provider).toBe("mock");
   });
 });
