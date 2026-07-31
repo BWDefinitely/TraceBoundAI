@@ -419,27 +419,7 @@ export async function exportEventsNdjson(): Promise<string> {
 
 // ---------- AI settings ----------
 
-const SETTINGS_KEY = "ai";
-
-function defaultAiSettings(): AiSettings {
-  return {
-    provider: "mock",
-    anthropic: { apiKey: "", model: "claude-sonnet-4-6", baseUrl: "" },
-    openaiCompat: { apiKey: "", model: "gpt-4o-mini", baseUrl: "" },
-    vision: {
-      provider: "anthropic",
-      apiKey: "",
-      model: "claude-sonnet-4-6",
-      baseUrl: "",
-    },
-    imageGeneration: {
-      provider: "custom",
-      apiKey: "",
-      model: "gemini-2.0-flash-lite-image",
-      baseUrl: "",
-    },
-  };
-}
+const SETTINGS_KEY = "aiSettings";
 
 export async function getAiSettings(): Promise<AiSettings> {
   // 优先从加密存储读取

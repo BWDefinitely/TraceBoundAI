@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { StepIndicator } from "../../_components/StepIndicator";
 import { useData } from "../../_components/DataProvider";
 import { saveStoryAction } from "../../_actions";
@@ -13,7 +13,7 @@ import { getAiSettings } from "../../../lib/client-store";
 
 const IDLE_MS = 45000; // 45 秒无操作触发自动灵感提示
 
-export default function Step4Page() {
+function Step4Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { stories, ready } = useData();
@@ -323,5 +323,13 @@ function RichTextArea({
         data-placeholder="开始写你的故事..."
       />
     </div>
+  );
+}
+
+export default function Step4Page() {
+  return (
+    <Suspense fallback={<div className="fade-in"><p className="muted">加载中...</p></div>}>
+      <Step4Content />
+    </Suspense>
   );
 }

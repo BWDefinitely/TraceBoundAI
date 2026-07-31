@@ -31,3 +31,31 @@ export interface AiSettings {
     baseUrl: string;
   };
 }
+
+export function defaultAiSettings(): AiSettings {
+  return {
+    provider: "mock",
+    anthropic: {
+      apiKey: "",
+      model: "claude-3-5-sonnet-20241022",
+      baseUrl: "https://api.anthropic.com",
+    },
+    openaiCompat: {
+      apiKey: "",
+      model: "gpt-4o",
+      baseUrl: "https://api.openai.com/v1",
+    },
+    vision: {
+      provider: "mock",
+      apiKey: "",
+      model: "gpt-4o",
+      baseUrl: "https://api.openai.com/v1",
+    },
+    imageGeneration: {
+      provider: "mock",
+      apiKey: "",
+      model: "dall-e-3",
+      baseUrl: "https://api.openai.com/v1",
+    },
+  };
+}

@@ -7,7 +7,7 @@ import { useData } from "../../_components/DataProvider";
 import { AlchemyWorkbench } from "../../_components/AlchemyWorkbench";
 import { StorylineOrganizer } from "../../_components/StorylineOrganizer";
 
-export default function Step3Page() {
+function Step3Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { materials, stories, ready } = useData();
@@ -122,5 +122,13 @@ export default function Step3Page() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Step3Page() {
+  return (
+    <Suspense fallback={<div className="fade-in"><p className="muted">加载中...</p></div>}>
+      <Step3Content />
+    </Suspense>
   );
 }
