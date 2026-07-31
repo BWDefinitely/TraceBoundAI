@@ -1,182 +1,345 @@
-# Trace-Bound · 儿童写作工作室
+# TraceBound AI - 儿童写作辅助工具
 
-按 CHI 研究方向的产品需求文档（阶段 A+B）实现的儿童痕迹约束型写作系统。**AI 不代写故事，只做支架**——所有 AI 输出必须经过孩子的"采纳 / 修改 / 组合 / 拒绝"决策，形成 Idea Card 才能进入故事。
+一个基于 AI 的儿童写作辅助工具，帮助小朋友通过素材收集、灵感炼金和故事创作，培养写作能力。
 
-## 六个核心概念
+## ✨ 功能特性
 
-- **Trace（痕迹）** — 孩子采集的一小片生活。每份 Trace 用「三问」结构记录：
-  - 我注意到（观察）
-  - 它让我想到（联想）
-  - 还不确定（未解之谜）
-  - 附带「允许 AI 读取」开关（默认开启）与媒体类型（文字 / 拍照 mock / 录音 mock）
-- **First Thoughts（Pre-AI 基线）** — 在 AI 介入前，孩子为每份 Trace 记录三个问题：**实际看到/听到什么** / **猜测是什么** / **故事中可能变成什么**。这是 CHI 研究的关键基线——用来观察 AI 出现前后孩子想法的变化。整个采集流程刻意屏蔽任何 AI 入口。
-- **Idea Card** — AI 联想的火花，必须经过孩子编辑并选择来源（AI 启发 / 我改过了 / 组合）后确认成为 Idea Card，才能出现在故事编辑器里。是连接素材与正文的桥梁。
-- **Story Shelf** — 故事的 6 个部分（主人公 / 目标 / 发生 / 困难 / 转折 / 结局），每个槽位可挂 Trace 或 Idea Card 作为 Source Chain。
-- **三种创意模式** — 孩子按困难场景选：
-  - **Open Up · 打开更多可能**（没想法 / 思路单一）→ World Witness 给现实/幻想/情感三种解读
-  - **Build On · 让故事继续**（有开头没发展）→ Story Coach 给"计划失败/新线索/内心动摇"等叙事动作
-  - **Look Again · 回去重看**（脱离素材）→ World Witness 把故事与 Trace 并排，追问"是观察还是想象？"
-- **Decision Ledger（叙事决定账本）** — 每一次与 AI 的交互都会记录：谁提的、哪个模式、动作（采纳 / 修改 / 组合 / 拒绝）、原因。完成故事后在反思页可视化，含 **Trace-Story Mapping**（Trace 走进哪些槽位）与 **拒绝记录**（守住"我自己的故事"的每一个时刻）。
+### 📦 素材管理
+- 批量导入图片素材
+- AI 自动识别图片内容
+- 智能分类（人物、观察、感受等）
+- 自动生成标签
+- 支持图片预览和缩略图
 
-## 三块主功能 + 完成后反思
+### ⚗️ 灵感炼金
+- **灵感生成**：文字描述生成配图
+- **素材融合**：拖拽多个素材融合创意
+  - 炼金锅动画效果
+  - 实时进度显示
+  - AI 读图并融合描述
+  - 生成新的创意场景图
 
-- **故事创作（主舞台）** — 主页面 `/write`。左侧正文，右侧 6 槽位 Story Shelf + Idea Cards 面板 + 关联 Traces + Agent 面板。
-- **Trace 采集与回顾（侧边抽屉）** — 从左侧或编辑器顶部按钮唤出。三问表单 + 每张卡片的 AI 读取开关 + 拍照/录音 mock 按钮。
-- **灵感炼金（侧边抽屉）** — 大炼金釜 + 两个槽位，把两份 Trace 拖进去。AI 给出联想，孩子编辑并选择来源类型后确认为 Idea Card。**AI 结果不能直接进入正文**——必须经过 Idea Card 转化。
-- **反思回顾（完成之后）** — `/reflect?story=...`。显示 Decision Ledger（采纳/修改/组合/拒绝的汇总 + 每一条记录）+ 反思日记。
+### 📖 故事创作
+- 5 步向导式创作流程：
+  1. 素材导入
+  2. 元数据填写（时间、地点、人物、事件）
+  3. 灵感炼金 & 素材整理
+  4. 撰写故事（AI 辅助）
+  5. 回顾总结
+- AI 写作教练实时辅助
+- 场景图片生成
+- 字数统计（用户/AI 分别统计）
+- 起承转合故事结构
 
-## 快速开始
+### 🔐 数据安全
+- **加密存储**：API Key 使用 AES-GCM 256-bit 加密
+- **数据导出**：支持完整数据导出为 JSON
+- **设置备份**：AI 配置单独加密导出
+- **本地存储**：所有数据在浏览器 IndexedDB 中
 
+### 🚀 部署友好
+- 完全客户端应用
+- 无服务端数据库
+- 支持 Vercel 一键部署
+- PWA 支持（可选）
+
+## 🛠️ 技术栈
+
+- **框架**: Next.js 15 (App Router)
+- **语言**: TypeScript
+- **样式**: CSS Modules
+- **存储**: IndexedDB + localStorage (加密)
+- **AI**: 支持多种大模型
+  - Anthropic Claude
+  - OpenAI 兼容接口
+  - 自定义 API
+- **图片生成**: DALL-E 3 / 自定义接口
+- **加密**: Web Crypto API (AES-GCM)
+
+## 📦 安装
+
+### 前置要求
+- Node.js 18+ 
+- npm / yarn / pnpm
+
+### 克隆项目
+```bash
+git clone https://github.com/your-username/TraceBoundAI.git
+cd TraceBoundAI
+```
+
+### 安装依赖
 ```bash
 npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+### 本地开发
+```bash
 npm run dev
-# 打开 http://localhost:3000
 ```
 
-首次保存时会自动创建 `~/TraceBound/` 目录，全部内容以纯文本方式落盘。
+访问 http://localhost:3000
 
-## 数据存放位置
-
-```
-~/TraceBound/
-  materials/
-    index.json           Trace 元数据（含三问、aiAllowed、mediaKind）
-    first-thoughts.json  First Thoughts (Pre-AI Baseline) 数组
-    <id>.txt             Trace 正文
-  stories/
-    index.json           Story 元数据（含 6 槽位 shelf + decisionLedger + linkedIdeaIds）
-    <id>.txt             Story 正文
-  ideas/
-    index.json           Idea Card 数组
-  alchemy/
-    index.json           炼金记录
-  reflections/
-    index.json           反思日记
-  logs/
-    events.json          CHI 埋点事件流（append-only，可在设置里导出为 NDJSON）
-  settings/
-    ai.json              provider / 实验条件 / API key（本机，不进版本库）
-```
-
-设置 `TRACEBOUND_HOME` 环境变量可换目录。全部写入走临时文件 + rename 原子写。
-
-**旧数据自动迁移**：旧 4 槽位（起承转合）故事在 `listStories()` 里自动映射到 6 槽位（`goal` 和 `turn` 补空），编辑器首次打开时提示补充。
-
-## AI 接入
-
-三种 provider，通过 `AI_PROVIDER` 环境变量选择。**默认本地模拟**——不配任何 key 也能看到效果。
-
-### 官方 Claude
-
+### 构建生产版本
 ```bash
-AI_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-opus-4-8         # 可选
-ANTHROPIC_BASE_URL=https://...          # 可选，走代理
+npm run build
+npm run start
 ```
 
-### 第三方 OpenAI 兼容接口
+## 🚀 Vercel 部署
 
-任何遵守 `POST /v1/chat/completions` 协议的服务都能直接用：
+### 一键部署
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/TraceBoundAI)
 
-```bash
-AI_PROVIDER=openai-compat
-AI_BASE_URL=https://api.openai.com/v1
-AI_API_KEY=sk-...
-AI_MODEL=gpt-4o-mini
+### 手动部署
+1. 推送代码到 GitHub
+2. 在 Vercel 导入项目
+3. 自动检测 Next.js 配置
+4. 点击 Deploy
+
+**无需配置环境变量！** 所有配置在客户端完成。
+
+## ⚙️ 配置
+
+### AI 设置
+1. 访问应用首页
+2. 点击"AI 设置"
+3. 配置以下内容：
+   - **主模型**: Anthropic / OpenAI 兼容
+   - **API Key**: 你的 API 密钥
+   - **读图模型**: 图片识别配置
+   - **生图模型**: 图片生成配置
+
+### 示例配置（OpenAI 兼容）
+```
+Provider: openai-compat
+Base URL: https://api.openai.com/v1
+API Key: sk-xxxxxxxxxxxxx
+Model: gpt-4o
 ```
 
-常见配置：
-
-| 提供商           | AI_BASE_URL                                          | AI_MODEL 示例             |
-| ---------------- | ---------------------------------------------------- | ------------------------- |
-| OpenAI           | `https://api.openai.com/v1`                          | `gpt-4o-mini`             |
-| DeepSeek         | `https://api.deepseek.com/v1`                        | `deepseek-chat`           |
-| Kimi（Moonshot） | `https://api.moonshot.cn/v1`                         | `moonshot-v1-8k`          |
-| 智谱 GLM         | `https://open.bigmodel.cn/api/paas/v4`               | `glm-4-flash`             |
-| 通义千问         | `https://dashscope.aliyuncs.com/compatible-mode/v1`  | `qwen-turbo`              |
-| Ollama 本地      | `http://localhost:11434/v1`                          | `llama3.1`                |
-
-三种 Persona（`alchemy` / `world-witness` / `story-coach`）共用同一个模型，只是 system prompt 不同。**三种创意模式**（Open Up / Build On / Look Again）在 Persona 之上加一层模式特定 prompt。调用失败自动降级 mock，写作不会被卡住。
-
-### 两个实验条件（CHI 对照）
-
-在设置抽屉里切换，或用 `EXPERIMENT_CONDITION` 环境变量（`trace-bound` / `topic-based`，默认 `trace-bound`）：
-
-- **Trace-Bound（痕迹约束）** — AI 可读取孩子授权的 traces、现场解释、Pre-AI 想法、Idea Card 与故事结构，回应带「基于 P3 和 S2」痕迹代号来源标签。
-- **Topic-Based（仅主题）** — AI 看不到原始照片 / 声音 / 视频 / 现场语音及 Pre-AI 想法，只读统一任务、当前 Idea Card、Story Shelf 与正文；来源标签改为引用孩子当前写下的内容（形如「基于你当前写下的‘神秘地点’和‘重复声音’」）。孩子自己仍可查看全部 traces。
-
-两条件的页面结构、三种创意模式、World Witness / Story Coach、回复次数与长度、Narrative Move Library、Story Fusion Board、Story Shelf、写作时间与最终提交都相同——**唯一核心差异是 AI 能否直接访问并引用孩子的多模态痕迹及其来源**。当前实验条件会写入每一条 CHI 埋点事件。
-
-## 与 PRD 的对齐
-
-| PRD 模块 | 实现状态 | 位置 |
-|---|---|---|
-| §3.2 Capture a Trace | ✓ 三问表单 + 权限开关 + 媒体类型 | `MaterialsDrawer.tsx`（capture tab）|
-| §3.3 My World Library | ✓ Trace Card + 卡片级 AI 权限开关 | `MaterialsDrawer.tsx`（review tab）|
-| §3.4 First Thoughts | ✓ Pre-AI 三问基线（实际/猜测/可能变成），Trace 卡内编辑，Story 编辑器里显示徽章 | `MaterialsDrawer.tsx`（FirstThoughtBlock）|
-| §3.5.1 Story Fusion Board | ✓ 大炼金釜 + 两槽位 + 拖拽 + **合成前先由儿童选择「两条素材的关系」**（5 个方向 + 自定义） | `AlchemyDrawer.tsx` |
-| §3.5.2 三种创意模式 | ✓ Open Up / Build On / Look Again 卡片选择，内部映射到 Persona + 模式特定 prompt | `StoryEditor.tsx`（AgentPanel + ModeCard）|
-| §3.5.2 Narrative Move Library | ✓ Build On 模式下可折叠面板：5 条抽象叙事动作（计划失败 / 新线索 / 误解被揭开 / 一个选择产生后果 / 内心动摇），每条附一个反问 | `ai.ts`（NARRATIVE_MOVES）+ `StoryEditor.tsx`（NarrativeMoveLibrary）|
-| §3.5.3 Idea Card 确认机制 | ✓ 强制编辑 + **6 种来源**（AI 前想到 / 重看素材后 / AI 提问启发 / 采用 AI 方向 / 改变 AI 建议 / 我和 AI 组合） + **4 种决定**（保留 / 继续修改 / 暂时放下 / 删除） | `AlchemyDrawer.tsx`（IdeaCardEditor）|
-| §3.6 Story Shelf | ✓ 6 槽位 + Source Chain + 折叠编辑 | `StoryEditor.tsx`（ShelfSlotEditor）|
-| §3.7 Agent 行为限制 | ✓ World Witness / Story Coach 双人格，按需召唤，system prompt 明确「严禁直接生成正文段落」；**AI 回应自动带来源标签**（"基于 P3 和 S2——"） | `ai.ts`（traceAttributionTag + SYSTEM_PROMPTS）|
-| §3.7 Story World Preview | ✓ Writing Studio 中的可折叠预览，分「真实层」（trace 编号 P/S/R）与「想象层」（Idea Card 内容 + 关系） | `StoryEditor.tsx`（StoryWorldPreview）|
-| §3.8 Narrative Decision Ledger | ✓ 采纳/修改/组合/拒绝汇总 + 详细账本 + 携带 mode 标签 + `sourceRelation` 支持 6 类来源 | `ReflectForm.tsx`（DecisionLedgerPanel）|
-| §3.8 Trace-Story Mapping | ✓ 反思页可视化每份 Trace 走进了哪些槽位 | `ReflectForm.tsx`（TraceStoryMappingPanel）|
-| §3.8 拒绝记录 | ✓ 反思页单独板块列出所有 rejected + 原因 | `ReflectForm.tsx`（RejectedSuggestionsPanel）|
-| §3.8 Story Journey | ✓ 5 个关键决定（主人公 / 目标 / 困难 / 转折 / 结局）逐一询问「最早从哪里出现」，6 个来源关系选项 | `ReflectForm.tsx`（StoryJourneyPanel）|
-| §3.1 Outdoor Mission | ✓ Field Companion 机器人引导慢观察（10 秒停留 + 轮换提示），记录 `outdoor-observe` 事件，「记录发现」跳转素材抽屉 | `outdoor/OutdoorMission.tsx` |
-| §"两个实验条件" | ✓ Trace-Bound / Topic-Based 切换。两条件页面/模式/双 Agent/炼金台/Shelf 全相同，唯一差异是 AI 能否读取原始痕迹：topic-based 下 AI 剥离 traces/first-thoughts，来源标签改为引用「你当前写下的…」 | `ai.ts`（askAgent 门控）+ `SettingsDrawer.tsx` |
-| §4 CHI 埋点日志 | ✓ append-only 事件流（采集 / 授权 / Pre-AI / 合成 / Idea Card / Agent / 决定 / 完成 / 反思），带实验条件，NDJSON 导出 | `store.ts`（appendEvent / exportEventsNdjson）+ `SettingsDrawer.tsx` |
-
-拍照 / 录音 UI 按钮为 mock：能选择文件 / 触发状态切换，但不会真的存储媒体文件（只存 `mediaKind` 元数据）。真实多模态在阶段 C。
-
-## 目录一览
-
+### 示例配置（自定义接口）
 ```
-src/
-  lib/
-    store.ts             本地文件存储 + 6 槽位迁移 + First Thoughts + CHI 事件日志
-    store.test.ts        store 单元测试（CRUD / 迁移 / 事件日志 / 实验条件）
-    ai.ts                多 provider AI 客户端 + 三种 Persona + 三种 CreativeMode + 实验条件门控
-    ai.test.ts           askAgent 条件门控与来源标签测试
-    ai-settings.ts       纯类型：provider / 实验条件 / AiSettings
-    ai-modes.ts          三种创意模式 + Narrative Move Library 常量
-    ai-modes.test.ts     创意模式 / 叙事动作常量测试
-    types.ts             共享类型
-  app/
-    _actions.ts          共享 server actions（含 createIdeaCard / askAgent / appendDecision / saveFirstThought / logOutdoorObserve / exportEvents）
-    _components/
-      AppShell.tsx       客户端 shell + 抽屉上下文
-      Sidebar.tsx        左侧导航（含抽屉触发）
-      Drawer.tsx         通用右侧抽屉壳
-      MaterialsDrawer.tsx  Trace 抽屉（三问 + 权限 + mock 媒体 + Pre-AI First Thoughts）
-      AlchemyDrawer.tsx    炼金抽屉（Idea Card 确认机制）
-      SettingsDrawer.tsx   AI 设置 + 实验条件切换 + CHI 事件日志导出
-      HomeShortcuts.tsx    首页快捷入口
-      PageHeader.tsx       页头
-    layout.tsx           全局布局
-    globals.css          全局设计 tokens
-    page.tsx             首页
-    outdoor/
-      page.tsx             户外任务页（阶段 1）
-      OutdoorMission.tsx   Field Companion 机器人 + 慢观察流程
-    write/
-      page.tsx             故事列表（进行中 / 已完成）
-      [id]/
-        page.tsx           故事编辑器路由
-        StoryEditor.tsx    6 槽位 + Source Chain + 三种创意模式 AgentPanel + Decision Ledger 埋点
-      ClientBits.tsx     新建 / 删除 / 重开按钮
-    reflect/
-      page.tsx
-      ReflectForm.tsx    反思表单 + Decision Ledger + Trace-Story Mapping + 拒绝记录
+Provider: custom
+Base URL: https://api.your-service.com/v1
+API Key: your-api-key
+Model: your-model-name
 ```
 
-## 校验命令
+## 📚 使用指南
 
-```bash
-npm run typecheck    # 严格类型检查
-npm test             # Vitest 单元测试（store / ai / ai-modes）
-npm run build        # Next.js 生产构建
+### 创建第一个故事
+
+1. **步骤 1：导入素材**
+   - 点击"创建新故事"
+   - 上传多张图片
+   - AI 自动识别内容
+   - 可跳过此步骤
+
+2. **步骤 2：填写元数据**
+   - 时间、地点、人物、事件
+   - 所有字段可选
+
+3. **步骤 3：灵感炼金**
+   - 切换"灵感生成"或"素材融合"
+   - 生成创意图片
+   - 添加标签和描述
+   - 保存到素材库
+   - 切换到"素材整理"
+   - 拖拽素材到起承转合
+
+4. **步骤 4：撰写故事**
+   - AI 生成故事开头
+   - 继续编辑和撰写
+   - 使用 AI 教练辅助
+   - 生成场景图片
+
+5. **步骤 5：回顾总结**
+   - 查看完整故事
+   - 查看素材使用
+   - 展开素材查看缩略图
+   - 完成故事
+
+### 数据管理
+
+#### 导出备份
+1. 访问"数据管理"
+2. 导出 AI 设置（`.enc` 加密文件）
+3. 导出所有数据（`.json` 文件）
+4. 保存到安全位置
+
+#### 导入恢复
+1. 访问"数据管理"
+2. 导入 AI 设置或数据文件
+3. 确认覆盖
+4. 自动刷新
+
+#### 跨设备迁移
+1. 设备 A 导出设置和数据
+2. 传输文件到设备 B
+3. 设备 B 导入文件
+
+## 📁 项目结构
+
 ```
+TraceBoundAI/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── create/            # 创作流程页面
+│   │   │   ├── step1/         # 素材导入
+│   │   │   ├── step2/         # 元数据
+│   │   │   ├── step3/         # 炼金 & 整理
+│   │   │   ├── step4/         # 撰写
+│   │   │   └── step5/         # 回顾
+│   │   ├── settings/          # 设置页面
+│   │   ├── _components/       # 共享组件
+│   │   └── page.tsx           # 首页
+│   ├── lib/
+│   │   ├── ai.ts              # AI 接口
+│   │   ├── crypto.ts          # 加密工具
+│   │   ├── secure-settings.ts # 加密设置
+│   │   ├── client-store.ts    # 数据存储
+│   │   ├── export-import.ts   # 导入导出
+│   │   └── idb.ts             # IndexedDB
+│   └── styles/                # 样式文件
+├── public/                     # 静态资源
+├── DEPLOYMENT.md              # 部署指南
+├── VERCEL-COMPATIBILITY.md    # Vercel 兼容性
+├── SECURE-SETTINGS.md         # 加密设置说明
+├── EXPORT-IMPORT.md           # 导入导出说明
+└── README.md                  # 本文件
+```
+
+## 🔒 安全性
+
+### 数据加密
+- **API Key**: AES-GCM 256-bit 加密
+- **密钥派生**: PBKDF2 (100,000 迭代)
+- **存储位置**: localStorage (加密)
+
+### 数据隔离
+- **敏感配置**: localStorage (加密)
+- **素材故事**: IndexedDB (本地)
+- **媒体文件**: IndexedDB Blob
+
+### 隐私保护
+- 所有数据仅存储在客户端
+- 不上传到服务器
+- 支持完全离线使用（配置后）
+
+### 安全建议
+1. 使用受限权限的 API Key
+2. 定期备份加密设置
+3. 妥善保管 `.enc` 文件
+4. 定期轮换 API Key
+5. 不要分享导出的文件
+
+## 🌐 浏览器兼容性
+
+- ✅ Chrome 60+
+- ✅ Firefox 57+
+- ✅ Safari 11+
+- ✅ Edge 79+
+
+需要支持：
+- IndexedDB
+- Web Crypto API
+- File API
+- Blob URLs
+
+## 📊 性能
+
+### 存储限制
+- **Chrome**: ~60% 可用磁盘
+- **Firefox**: ~50% 可用磁盘
+- **Safari**: ~1GB
+
+### 优化
+- 图片懒加载
+- 分页加载素材（每次 20 项）
+- 异步 IndexedDB 操作
+- 缓存 Blob URLs
+
+## 🐛 故障排查
+
+### Q: 数据丢失了？
+**A**: 检查是否清除了浏览器数据。从备份文件恢复。
+
+### Q: AI 不工作？
+**A**: 检查：
+1. API Key 是否正确
+2. Base URL 是否正确
+3. 网络连接
+4. API 额度是否充足
+
+### Q: 图片无法显示？
+**A**: 
+1. 检查 IndexedDB 存储
+2. 刷新页面
+3. 重新导入数据
+
+### Q: 导入失败？
+**A**: 
+1. 确认文件格式正确
+2. 检查浏览器存储配额
+3. 不在隐私模式下使用
+
+### Q: 设置无法保存？
+**A**: 
+1. 检查 localStorage 权限
+2. 清除旧数据重试
+3. 检查浏览器控制台错误
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+### 开发指南
+1. Fork 本项目
+2. 创建功能分支
+3. 提交更改
+4. 推送到分支
+5. 创建 Pull Request
+
+### 代码规范
+- TypeScript strict mode
+- ESLint + Prettier
+- 组件使用 React Hooks
+- 样式使用 CSS Modules
+
+## 📄 许可证
+
+MIT License
+
+Copyright (c) 2026 TraceBound AI
+
+## 📮 联系方式
+
+- **Issue**: [GitHub Issues](https://github.com/your-username/TraceBoundAI/issues)
+- **Email**: your-email@example.com
+- **Website**: https://tracebound.ai
+
+## 🙏 致谢
+
+- Next.js 团队
+- Anthropic / OpenAI
+- 所有贡献者
+
+## 📝 更新日志
+
+### v1.0.0 (2026-07-31)
+- ✅ 完整的创作流程
+- ✅ 素材融合功能
+- ✅ 加密设置存储
+- ✅ 数据导入导出
+- ✅ Vercel 部署支持
+- ✅ 炼金锅动画效果
+- ✅ 故事回顾功能
+
+---
+
+⭐ 如果这个项目对你有帮助，请给个 Star！
