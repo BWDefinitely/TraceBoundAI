@@ -213,9 +213,10 @@ ${text}
         // 使用AI读图生成简短描述
         let description = "正在生成描述...";
         try {
-          const file = new File([blob], `scene-${i}.png`, { type: blob.type });
-          const aiDesc = await readImage(file, settings, "请用一句话（不超过20字）简短描述这张图片的内容");
-          description = aiDesc.slice(0, 50); // 限制长度
+          const aiDesc = await readImage(blob, settings);
+          // 提取第一句话作为简短描述（限制50字）
+          const firstSentence = aiDesc.split(/[。！？.!?]/)[0];
+          description = firstSentence.slice(0, 50);
         } catch (err) {
           console.error("[SceneImagePanel] AI读图失败:", err);
           description = "场景图片";
