@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { exportAllData, importAllData } from "../../lib/export-import";
 import { exportSecureSettings, importSecureSettings, deleteSecureSettings, hasSecureSettings } from "../../lib/secure-settings";
@@ -13,7 +13,14 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [settingsExporting, setSettingsExporting] = useState(false);
   const [settingsImporting, setSettingsImporting] = useState(false);
-  const hasSettings = typeof window !== 'undefined' && hasSecureSettings();
+  const [hasSettings, setHasSettings] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // 在客户端挂载后检查设置
+  useEffect(() => {
+    setMounted(true);
+    setHasSettings(hasSecureSettings());
+  }, []);
 
   async function handleExport() {
     if (!confirm("确认导出所有数据到本地文件？")) return;
@@ -65,10 +72,12 @@ export default function SettingsPage() {
     setSettingsImporting(true);
     try {
       await importSecureSettings(file);
-      alert("设置导入成功！");
+      alert("✅ 设置导入成功！页面将刷新以应用新设置。");
       window.location.reload();
     } catch (err) {
-      alert((err as Error).message);
+      const errorMessage = (err as Error).message || "未知错误";
+      alert(`❌ 导入失败\n\n${errorMessage}\n\n请确保：\n1. 文件是通过"导出 AI 设置"生成的 .enc 文件\n2. 文件未被修改或损坏\n3. 使用相同版本的应用`);
+      console.error("导入错误详情:", err);
     } finally {
       setSettingsImporting(false);
       if (settingsInputRef.current) settingsInputRef.current.value = '';
@@ -98,10 +107,20 @@ export default function SettingsPage() {
     try {
       deleteSecureSettings();
       alert("设置已删除");
+      setHasSettings(false);
       window.location.reload();
     } catch (err) {
       alert("删除失败：" + (err as Error).message);
     }
+  }
+
+  // 在挂载前显示加载状态，避免hydration不匹配
+  if (!mounted) {
+    return (
+      <div className="fade-in" style={{ maxWidth: 800, margin: "0 auto", padding: "var(--space-6)" }}>
+        <p className="muted">加载中...</p>
+      </div>
+    );
   }
 
   return (

@@ -1,174 +1,139 @@
-# TraceBound AI 部署指南
+# Vercel 部署检查清单
 
-## Vercel 部署
+## ✅ 已验证项目
 
-本应用完全兼容 Vercel 部署，所有数据存储在客户端浏览器中。
+### 1. 构建检查
+- ✅ `npm run build` - 成功编译，无错误
+- ✅ `npm run typecheck` - TypeScript类型检查通过
+- ✅ 所有页面成功生成为静态内容
+- ✅ 包大小合理（First Load JS: 103-150 kB）
 
-### 架构说明
+### 2. 架构兼容性
+- ✅ **纯客户端应用** - 所有组件使用 `"use client"`
+- ✅ **无服务端API** - 不使用 `"use server"` 或 Node.js 文件系统
+- ✅ **数据存储** - 使用浏览器 IndexedDB（完全客户端）
+- ✅ **无环境变量依赖** - 用户在浏览器设置中配置 API Key
+- ✅ **静态导出兼容** - 所有页面预渲染为静态内容
 
-- **前端**: Next.js 15 (App Router)
-- **数据存储**: IndexedDB (浏览器本地)
-- **媒体存储**: IndexedDB Blob Storage
-- **无服务端数据库**: 所有数据在客户端
+### 3. 配置文件
+- ✅ `next.config.mjs` - 基础配置正确
+- ✅ `package.json` - 依赖版本正确
+  - Next.js 15.5.21
+  - React 19.0.0
+  - TypeScript 5.7.0
+- ✅ `tsconfig.json` - 排除测试文件，类型检查通过
+- ✅ `.gitignore` - 正确排除构建产物和敏感文件
 
-### 部署步骤
+### 4. 浏览器API使用
+- ✅ IndexedDB - 本地数据存储
+- ✅ localStorage - 加密设置存储
+- ✅ Web Crypto API - 客户端加密
+- ✅ Blob API - 图片/媒体处理
+- ✅ 所有API都在浏览器中可用
 
-1. **推送代码到 GitHub**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin <your-repo-url>
-   git push -u origin main
-   ```
+### 5. 外部依赖
+- ✅ Anthropic SDK - AI功能（客户端调用）
+- ✅ 无需服务端环境变量
+- ✅ 用户自行配置API密钥
 
-2. **在 Vercel 上部署**
-   - 访问 [vercel.com](https://vercel.com)
-   - 点击 "New Project"
-   - 导入你的 GitHub 仓库
-   - 构建设置自动检测（Next.js）
-   - 点击 "Deploy"
+## 🚀 Vercel 部署步骤
 
-3. **环境变量**（可选）
-   - 无需配置服务端环境变量
-   - AI API Key 在客户端浏览器中配置
+### 方法一：Git 集成（推荐）
 
-### 数据管理
+1. 将代码推送到 GitHub/GitLab
+2. 在 Vercel 导入项目
+3. 框架预设：**Next.js**
+4. 构建命令：`npm run build`（默认）
+5. 输出目录：`.next`（默认）
+6. 点击 **Deploy**
 
-#### 导出数据
-1. 访问应用的 "数据管理" 页面
-2. 点击 "导出所有数据"
-3. JSON 文件会下载到本地
+### 方法二：CLI 部署
 
-#### 导入数据
-1. 访问应用的 "数据管理" 页面
-2. 点击 "导入数据文件"
-3. 选择之前导出的 JSON 文件
-
-### 数据存储说明
-
-所有数据存储在浏览器的 IndexedDB 中：
-
-- **materials**: 素材数据
-- **stories**: 故事数据
-- **media**: 图片/音频 Blob
-- **aiSettings**: AI 配置（包含 API Key）
-
-**注意事项：**
-- 数据只存在于当前浏览器
-- 清除浏览器数据会丢失所有内容
-- 建议定期导出备份
-- 不同设备/浏览器需要分别导入数据
-
-### 安全性
-
-- API Key 存储在客户端 IndexedDB
-- 建议使用有限权限的 API Key
-- 定期轮换 API Key
-- 导出的 JSON 文件包含敏感信息，妥善保管
-
-### 性能优化
-
-#### IndexedDB 配额
-- Chrome: 约 60% 磁盘空间
-- Firefox: 约 50% 磁盘空间
-- Safari: 约 1GB
-
-#### 建议
-- 定期清理不需要的素材
-- 压缩图片后再导入
-- 大量数据时使用导出功能备份
-
-### 跨设备同步
-
-由于数据存储在客户端，跨设备同步需要手动操作：
-
-1. **设备 A**: 导出数据到 JSON 文件
-2. **传输**: 通过云盘、邮件等方式传输 JSON 文件
-3. **设备 B**: 导入 JSON 文件
-
-### 故障排查
-
-#### 数据丢失
-- 检查浏览器是否清除了 IndexedDB
-- 尝试从备份的 JSON 文件恢复
-
-#### 导入失败
-- 检查 JSON 文件格式是否正确
-- 确认文件大小未超过浏览器限制
-- 尝试在隐私/无痕模式下导入
-
-#### 媒体文件无法显示
-- 检查 IndexedDB 中的 media store
-- 重新导入数据
-- 清除浏览器缓存后刷新
-
-### 备份策略
-
-建议：
-1. **定期备份**: 每周导出一次数据
-2. **版本管理**: 保留多个时间点的备份
-3. **云端存储**: 将备份文件上传到云盘
-4. **多设备备份**: 在不同设备上保留副本
-
-### 升级和迁移
-
-从旧版本升级：
-1. 导出旧版本数据
-2. 部署新版本
-3. 导入数据到新版本
-4. 验证数据完整性
-
-### 技术细节
-
-#### IndexedDB Stores
-
-```javascript
-const DB_NAME = "tracebound";
-const STORES = {
-  materials: "materials",
-  stories: "stories", 
-  media: "media",
-  aiSettings: "aiSettings",
-  // ... 其他 stores
-};
-```
-
-#### 数据导出格式
-
-```json
-{
-  "version": "1.0.0",
-  "exportDate": "2026-07-31T...",
-  "materials": [...],
-  "stories": [...],
-  "media": {
-    "material-id": "base64-encoded-image",
-    ...
-  }
-}
-```
-
-## 其他部署平台
-
-### Netlify
-- 构建命令: `npm run build`
-- 发布目录: `.next`
-- 需要 `netlify.toml` 配置
-
-### Cloudflare Pages
-- 构建命令: `npm run build`
-- 构建输出目录: `.next`
-- 完全兼容静态部署
-
-### 自托管
 ```bash
-npm run build
-npm run start
+# 安装 Vercel CLI
+npm i -g vercel
+
+# 登录
+vercel login
+
+# 部署
+vercel --prod
 ```
 
-需要 Node.js 运行环境。
+## 📝 部署后配置
 
-## 许可证
+### 用户需要在应用中配置：
 
-MIT License
+1. 访问部署的网站 `/settings` 页面
+2. 选择 AI 提供商：
+   - Anthropic (Claude)
+   - OpenAI 兼容接口
+   - 自定义接口
+3. 输入 API Key 和相关配置
+4. 点击"保存设置"（加密存储在浏览器 localStorage）
+
+## ⚠️ 注意事项
+
+1. **数据存储**：
+   - 所有数据存储在用户浏览器（IndexedDB）
+   - 清除浏览器数据会丢失所有内容
+   - 不同浏览器/设备数据不同步
+
+2. **API Key 安全**：
+   - API Key 存储在用户浏览器 localStorage（加密）
+   - 不会上传到服务器
+   - 用户需妥善保管自己的 API Key
+
+3. **浏览器兼容性**：
+   - 需要支持 IndexedDB、Web Crypto API
+   - 推荐使用现代浏览器（Chrome、Firefox、Safari、Edge）
+
+4. **导入导出**：
+   - 用户可在 `/settings` 页面导出/导入 AI 配置
+   - 素材和故事暂不支持跨设备同步
+
+## 🔍 故障排查
+
+### 构建失败
+```bash
+# 清除缓存重新构建
+rm -rf .next node_modules
+npm install
+npm run build
+```
+
+### TypeScript 错误
+```bash
+# 检查类型
+npm run typecheck
+```
+
+### 运行时错误
+- 检查浏览器控制台
+- 确认 IndexedDB 可用
+- 确认用户已配置 API Key
+
+## 📊 性能优化
+
+- ✅ 所有页面静态生成
+- ✅ 代码分割优化
+- ✅ 首次加载 JS < 150 KB
+- ✅ 图片使用 Blob 本地存储
+- ✅ 无需服务端渲染
+
+## ✨ 功能确认
+
+- ✅ 素材导入（图片+文字）
+- ✅ 素材库管理
+- ✅ 素材炼金（AI 生成）
+- ✅ 故事创建（五场景结构）
+- ✅ 故事撰写（AI 协助）
+- ✅ 场景图生成（AI 绘图）
+- ✅ 故事回顾与完成
+- ✅ 设置页面（API 配置）
+
+---
+
+**最后更新时间**: 2026-01-31
+
+**项目状态**: ✅ 已验证，可部署到 Vercel

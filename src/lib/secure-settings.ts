@@ -89,13 +89,39 @@ export async function exportSecureSettings(): Promise<void> {
 // 从文件导入加密的设置
 export async function importSecureSettings(file: File): Promise<AiSettings> {
   try {
+    // 检查文件类型
+    if (!file.name.endsWith('.enc')) {
+      throw new Error("请选择 .enc 格式的设置文件");
+    }
+    
+    // 读取文件内容
     const encrypted = await file.text();
     
+    if (!encrypted || encrypted.trim().length === 0) {
+      throw new Error("文件内容为空");
+    }
+    
     // 尝试解密验证
-    const secureData = await decryptObject<SecureSettings>(encrypted);
+    let secureData: SecureSettings;
+    try {
+      secureData = await decryptObject<SecureSettings>(encrypted);
+    } catch (decryptErr) {
+      console.error("解密错误:", decryptErr);
+      throw new Error("解密失败：文件可能已损坏或密码不正确");
+    }
+    
+    // 版本检查
+    if (!secureData.version) {
+      throw new Error("设置文件格式不正确：缺少版本信息");
+    }
     
     if (secureData.version !== SETTINGS_VERSION) {
-      throw new Error("设置文件版本不兼容");
+      throw new Error(`设置文件版本不兼容（文件版本：${secureData.version}，当前版本：${SETTINGS_VERSION}）`);
+    }
+    
+    // 验证数据结构
+    if (!secureData.aiSettings) {
+      throw new Error("设置文件格式不正确：缺少AI设置数据");
     }
     
     // 保存到 localStorage
@@ -104,7 +130,15 @@ export async function importSecureSettings(file: File): Promise<AiSettings> {
     return secureData.aiSettings;
   } catch (err) {
     console.error("导入设置失败:", err);
-    throw new Error("导入设置失败：文件可能已损坏或格式不正确");
+    // 如果是已知错误，直接抛出
+    if (err instanceof Error && err.message.startsWith("解密失败") || 
+        err instanceof Error && err.message.startsWith("设置文件") ||
+        err instanceof Error && err.message.startsWith("请选择") ||
+        err instanceof Error && err.message.startsWith("文件内容")) {
+      throw err;
+    }
+    // 未知错误
+    throw new Error(`导入设置失败：${(err as Error).message || "未知错误"}`);
   }
 }
 

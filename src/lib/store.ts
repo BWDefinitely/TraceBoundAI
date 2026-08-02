@@ -38,10 +38,11 @@ export interface StorySlot {
 }
 
 export interface StoryStructure {
-  qi: StorySlot;      // 起
-  cheng: StorySlot;   // 承
-  zhuan: StorySlot;   // 转
-  he: StorySlot;      // 合
+  discovery: StorySlot;   // 发现
+  goal: StorySlot;        // 目标
+  accident: StorySlot;    // 意外
+  action: StorySlot;      // 行动
+  change: StorySlot;      // 改变
 }
 
 export interface Story {
@@ -123,10 +124,12 @@ export type ImportImageStatus = 'pending' | 'saved' | 'discarded';
 export interface ImportImage {
   id: string;
   blobId: string;           // 存在 media store 的 Blob ID
-  aiDescription: string;    // AI 读图生成的描述
+  materialName?: string;    // 素材名字
   status: ImportImageStatus;
-  iNoticed?: string;        // 用户填写的"我注意到"
-  itRemindsMe?: string;     // 用户填写的"它让我想到"
+  whyTook?: string;         // 我为什么拍它
+  myThoughts?: string;      // 我的想法
+  guidanceHint?: string;    // AI观察指导提示
+  kind?: MaterialKind;      // 素材类型
 }
 
 export interface ImportBatch {
@@ -216,10 +219,11 @@ export const emptyStorySlot = (): StorySlot => ({
 });
 
 export const emptyStructure = (): StoryStructure => ({
-  qi: emptyStorySlot(),
-  cheng: emptyStorySlot(),
-  zhuan: emptyStorySlot(),
-  he: emptyStorySlot(),
+  discovery: emptyStorySlot(),
+  goal: emptyStorySlot(),
+  accident: emptyStorySlot(),
+  action: emptyStorySlot(),
+  change: emptyStorySlot(),
 });
 
 export const emptyShelf = (): StoryShelf => ({

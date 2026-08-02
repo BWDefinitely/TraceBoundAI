@@ -169,9 +169,23 @@ export function AiCoachPanel({ story, body, onInsertText }: Props) {
             }
           }}
           placeholder="问我点子，比如：接下来会发生什么？"
-          style={{ flex: 1, fontSize: "0.88rem" }}
+          style={{ 
+            flex: 1, 
+            fontSize: "0.88rem",
+            padding: "10px 14px",
+            borderRadius: "var(--radius)",
+            border: "1px solid var(--line)",
+          }}
         />
-        <button className="btn-primary" onClick={send} disabled={loading || !input.trim()}>
+        <button 
+          className="btn-primary" 
+          onClick={send} 
+          disabled={loading || !input.trim()}
+          style={{
+            borderRadius: "var(--radius)",
+            padding: "10px 20px",
+          }}
+        >
           发送
         </button>
       </div>

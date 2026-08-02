@@ -6,22 +6,28 @@ import { StepIndicator } from "../../_components/StepIndicator";
 import { useData } from "../../_components/DataProvider";
 import { saveStoryAction } from "../../_actions";
 import { AiCoachPanel } from "../../_components/AiCoachPanel";
-import { StorylineDrawer } from "../../_components/StorylineDrawer";
-import { SceneImagePanel } from "../../_components/SceneImagePanel";
 import { askAgent } from "../../../lib/ai";
 import { getAiSettings } from "../../../lib/client-store";
+import type { Material } from "../../../lib/store";
 
 const IDLE_MS = 45000; // 45 秒无操作触发自动灵感提示
+
+const SLOT_LABELS: Record<string, string> = {
+  discovery: "发现",
+  goal: "目标",
+  accident: "意外",
+  action: "行动",
+  change: "改变",
+};
 
 function Step4Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { stories, ready } = useData();
+  const { stories, materials, ready } = useData();
 
   const [storyId, setStoryId] = useState<string | null>(null);
   
   useEffect(() => {
-    // 优先从 URL 读取，其次从 sessionStorage
     const urlStoryId = searchParams?.get("storyId") || null;
     const sessionStoryId = sessionStorage.getItem("currentStoryId");
     const finalId = urlStoryId || sessionStoryId;
@@ -38,8 +44,7 @@ function Step4Content() {
   const [loaded, setLoaded] = useState(false);
   const [aiWordCount, setAiWordCount] = useState(0);
   const [userWordCount, setUserWordCount] = useState(0);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [showImages, setShowImages] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // 左侧故事线默认打开
   const [autoHint, setAutoHint] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
 
@@ -54,50 +59,38 @@ function Step4Content() {
       const pureTextLength = story.body ? stripHtml(story.body).length : 0;
       
       setTitle(story.title);
-      setBody(story.body);
+      
+      // 如果正文为空，自动粘贴五个场景内容
+      if (!story.body || story.body.trim().length === 0) {
+        const sceneTexts = [
+          story.structure.discovery.text,
+          story.structure.goal.text,
+          story.structure.accident.text,
+          story.structure.action.text,
+          story.structure.change.text,
+        ].filter(t => t && t.trim().length > 0);
+        
+        if (sceneTexts.length > 0) {
+          const combinedText = sceneTexts.join('\n\n');
+          setBody(combinedText);
+          lastBodyRef.current = combinedText;
+          setUserWordCount(stripHtml(combinedText).length);
+          // 保存到story
+          saveStoryAction(story.id, { body: combinedText, userWordCount: stripHtml(combinedText).length });
+        } else {
+          setBody(story.body);
+          lastBodyRef.current = story.body;
+        }
+      } else {
+        setBody(story.body);
+        lastBodyRef.current = story.body;
+      }
+      
       setAiWordCount(story.aiWordCount ?? 0);
       setUserWordCount(story.userWordCount ?? pureTextLength);
-      lastBodyRef.current = story.body;
       setLoaded(true);
     }
   }, [story, loaded]);
-
-  // AI 初始化：正文为空时，生成一个非常简单的故事开头供编辑
-  useEffect(() => {
-    if (!loaded || !story) return;
-    if (story.body.trim().length > 0) return;
-    if (initializing) return;
-    let cancelled = false;
-    (async () => {
-      setInitializing(true);
-      try {
-        const settings = await getAiSettings();
-        const meta = story.metadata;
-        const prompt =
-          `请为一个正在学写作的小朋友，写一个非常简单的故事开头（2-3 句话即可），` +
-          `作为可编辑的草稿。时间：${meta.time || "未定"}，地点：${meta.place || "未定"}，` +
-          `人物：${meta.people.join("、") || "未定"}，事件：${meta.event || "未定"}。` +
-          `直接给出故事开头文字，不要解释，不要加引号。`;
-        const reply = await askAgent({ persona: "story-coach", userPrompt: prompt, settings });
-        if (!cancelled && reply) {
-          const seed = reply.replace(/^.*?——\s*/s, "").trim();
-          const pureTextLength = seed.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, '').length;
-          setBody(seed);
-          lastBodyRef.current = seed;
-          setAiWordCount(pureTextLength);
-          await saveStoryAction(story.id, { body: seed, aiWordCount: pureTextLength });
-        }
-      } catch {
-        /* 忽略初始化失败 */
-      } finally {
-        if (!cancelled) setInitializing(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, story?.id]);
 
   // 空闲自动灵感提示
   function resetIdle() {
@@ -128,12 +121,9 @@ function Step4Content() {
     return () => {
       if (idleTimer.current) clearTimeout(idleTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
   function handleBodyChange(next: string) {
-    // 用户手动输入的字数计入用户字数
-    // 先去除HTML标签，只统计纯文本字数
     const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, '');
     
     const prev = lastBodyRef.current;
@@ -189,6 +179,13 @@ function Step4Content() {
 
   const totalChars = body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, '').length;
 
+  // 获取关联的素材
+  const getLinkedMaterials = (slotKey: string): Material[] => {
+    const slot = story.structure[slotKey as keyof typeof story.structure];
+    if (!slot || !slot.linkedMaterials) return [];
+    return materials.filter(m => slot.linkedMaterials.includes(m.id));
+  };
+
   return (
     <div className="fade-in">
       <StepIndicator currentStep={4} totalSteps={5} />
@@ -196,59 +193,111 @@ function Step4Content() {
       <header style={{ marginBottom: "var(--space-5)", textAlign: "center" }}>
         <h1 style={{ fontSize: "2rem", marginBottom: "var(--space-2)" }}>步骤 4：故事撰写</h1>
         <p className="muted" style={{ fontSize: "0.95rem" }}>
-          左侧打开故事线参考，中间写正文，右侧 AI Coach 陪你找灵感。
+          左侧查看故事线参考，中间写正文，右侧 AI Coach 陪你找灵感。
         </p>
       </header>
 
       {/* 工具条 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-        <button className="btn-secondary" onClick={() => setDrawerOpen(true)}>
-          📋 故事线
+        <button className="btn-secondary" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          {sidebarOpen ? "◀ 收起故事线" : "▶ 展开故事线"}
         </button>
-        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-          <span style={{ fontSize: "0.82rem", color: "var(--ink-soft)" }}>
-            总字数 {totalChars} · ✍️你 {userWordCount} · 🤖AI {aiWordCount}
-          </span>
-          <button className="btn-secondary" onClick={() => setShowImages((v) => !v)}>
-            🎨 生成场景图
-          </button>
-        </div>
+        <span style={{ fontSize: "0.82rem", color: "var(--ink-soft)" }}>
+          总字数 {totalChars} · ✍️你 {userWordCount} · 🤖AI {aiWordCount}
+        </span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "var(--space-5)" }}>
-        {/* 中间：编辑器 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-          <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={handleSave}
-              placeholder="故事标题"
-              style={{ fontSize: "1.4rem", fontWeight: 700, border: "none", background: "transparent", padding: 0 }}
-            />
-            {autoHint && (
-              <div
-                style={{
-                  padding: "8px 12px",
-                  background: "var(--accent-wash)",
-                  border: "1px solid var(--accent-soft)",
-                  borderRadius: "var(--radius)",
-                  fontSize: "0.85rem",
-                  color: "var(--accent)",
-                }}
-              >
-                💡 {autoHint}
-              </div>
-            )}
-            <RichTextArea value={body} onChange={handleBodyChange} onBlur={handleSave} disabled={initializing} />
-            {initializing && <div className="muted" style={{ fontSize: "0.8rem" }}>AI 正在准备一个开头…</div>}
+      <div style={{ display: "flex", gap: "var(--space-5)" }}>
+        {/* 左侧：故事线面板（常驻，可收起） */}
+        {sidebarOpen && (
+          <div style={{ 
+            width: 280, 
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-3)",
+            maxHeight: "calc(100vh - 300px)",
+            overflowY: "auto"
+          }}>
+            <h3 style={{ fontSize: "1rem", margin: 0, color: "var(--accent)" }}>📋 故事线参考</h3>
+            
+            {(["discovery", "goal", "accident", "action", "change"] as const).map((slotKey) => {
+              const slot = story.structure[slotKey];
+              const linkedMats = getLinkedMaterials(slotKey);
+              
+              return (
+                <div 
+                  key={slotKey}
+                  className="card"
+                  style={{ 
+                    padding: "var(--space-3)",
+                    background: "var(--surface)",
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: "var(--accent)", marginBottom: "var(--space-2)", fontSize: "0.9rem" }}>
+                    {SLOT_LABELS[slotKey]}
+                  </div>
+                  
+                  {slot.text ? (
+                    <p style={{ 
+                      fontSize: "0.85rem", 
+                      lineHeight: 1.5, 
+                      margin: 0,
+                      color: "var(--ink)"
+                    }}>
+                      {slot.text}
+                    </p>
+                  ) : (
+                    <p className="muted" style={{ fontSize: "0.8rem", margin: 0 }}>暂无内容</p>
+                  )}
+                  
+                  {linkedMats.length > 0 && (
+                    <div style={{ marginTop: "var(--space-2)", paddingTop: "var(--space-2)", borderTop: "1px solid var(--line)" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--ink-soft)" }}>
+                        🖼 {linkedMats.length} 个素材
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 中间+右侧 */}
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: sidebarOpen ? "1.5fr 1fr" : "1.6fr 1fr", gap: "var(--space-5)" }}>
+          {/* 中间：编辑器 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+            <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onBlur={handleSave}
+                placeholder="故事标题"
+                style={{ fontSize: "1.4rem", fontWeight: 700, border: "none", background: "transparent", padding: 0 }}
+              />
+              {autoHint && (
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    background: "var(--accent-wash)",
+                    border: "1px solid var(--accent-soft)",
+                    borderRadius: "var(--radius)",
+                    fontSize: "0.85rem",
+                    color: "var(--accent)",
+                  }}
+                >
+                  💡 {autoHint}
+                </div>
+              )}
+              <RichTextArea value={body} onChange={handleBodyChange} onBlur={handleSave} disabled={initializing} />
+              {initializing && <div className="muted" style={{ fontSize: "0.8rem" }}>准备中…</div>}
+            </div>
           </div>
 
-          {showImages && <SceneImagePanel story={story} storyBody={body} />}
+          {/* 右侧：AI Coach */}
+          <AiCoachPanel story={story} body={body} onInsertText={handleInsertText} />
         </div>
-
-        {/* 右侧：AI Coach */}
-        <AiCoachPanel story={story} body={body} onInsertText={handleInsertText} />
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-6)" }}>
@@ -264,8 +313,6 @@ function Step4Content() {
           </button>
         </div>
       </div>
-
-      <StorylineDrawer story={story} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }
@@ -284,7 +331,6 @@ function RichTextArea({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // 仅在外部值与 DOM 不一致时同步（避免打字时光标跳动）
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== value) {
       ref.current.innerHTML = value;

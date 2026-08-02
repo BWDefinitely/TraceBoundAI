@@ -354,6 +354,62 @@ export async function readImage(imageBlob: Blob, settings: AiSettings): Promise<
   }
 }
 
+// 基于用户输入生成观察指导（一句话提示）
+export async function generateObservationGuidance(
+  imageBlob: Blob, 
+  whyTook: string, 
+  myThoughts: string, 
+  settings: AiSettings
+): Promise<string> {
+  const provider = resolveVisionProvider(settings);
+  console.log("[generateObservationGuidance] provider:", provider);
+  
+  const systemPrompt = 
+    "你是专业的观察指导助手。基于用户拍摄这张照片的原因和想法，结合图片实际内容，" +
+    "生成一句话的观察指导，提示用户可能尚未注意到的细节或角度。" +
+    "控制在30字以内。用中文回答，语言简洁有力。";
+  
+  const userPrompt = 
+    `用户拍摄原因：${whyTook || "(未填写)"}\n` +
+    `用户的想法：${myThoughts || "(未填写)"}\n\n` +
+    `请结合图片内容，提供一句话的观察指导，帮助用户发现更多细节。`;
+
+  try {
+    let guidance: string;
+    if (provider === "anthropic") {
+      guidance = await callAnthropicVision(systemPrompt, userPrompt, imageBlob, settings);
+    } else if (provider === "openai-compat") {
+      guidance = await callOpenAiCompatVision(systemPrompt, userPrompt, imageBlob, settings);
+    } else if (provider === "custom") {
+      guidance = mockObservationGuidance(whyTook, myThoughts);
+    } else {
+      guidance = mockObservationGuidance(whyTook, myThoughts);
+    }
+    
+    // 确保不超过30字
+    if (guidance.length > 30) {
+      guidance = guidance.substring(0, 30) + "...";
+    }
+    
+    return guidance;
+  } catch (err) {
+    console.error("[ai] generateObservationGuidance failed, falling back to mock:", err);
+    return mockObservationGuidance(whyTook, myThoughts, (err as Error).message);
+  }
+}
+
+function mockObservationGuidance(whyTook: string, myThoughts: string, fallbackReason?: string): string {
+  const guidances = [
+    "注意光影的对比和色彩的层次感",
+    "观察画面中的留白与构图平衡",
+    "关注细节中的情绪表达",
+    "思考前景与背景的呼应关系",
+    "留意画面中的线条引导视线",
+  ];
+  const guidance = guidances[Math.floor(Math.random() * guidances.length)];
+  return fallbackReason ? `（模拟：${fallbackReason.slice(0, 10)}）${guidance}` : guidance;
+}
+
 // 安全地把 Blob 转 base64（分块避免 String.fromCharCode(...largeArray) 栈溢出）
 async function blobToBase64(imageBlob: Blob): Promise<string> {
   const bytes = new Uint8Array(await imageBlob.arrayBuffer());

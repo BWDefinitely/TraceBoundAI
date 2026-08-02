@@ -6,17 +6,17 @@ import { ImportImageCard } from "./ImportImageCard";
 import type { MaterialKind } from "../../lib/store";
 import { createImportBatch, updateImportBatch, deleteImportBatch, saveMediaBlob, getMediaBlob, deleteMediaBlob } from "../../lib/client-store";
 import { createMaterialAction, getAiSettingsAction } from "../_actions";
-import { readImage } from "../../lib/ai";
+import { generateObservationGuidance } from "../../lib/ai";
 
 export interface ImportImage {
   id: string;
   blobId: string;
-  aiDescription: string;
+  materialName?: string; // 素材名字
   status: "pending" | "saved" | "discarded";
-  iNoticed?: string;
-  itRemindsMe?: string;
+  whyTook?: string; // 我为什么拍它
+  myThoughts?: string; // 我的想法
+  guidanceHint?: string; // AI观察指导提示
   kind?: MaterialKind;
-  tags?: string[];
 }
 
 interface Props {
@@ -59,11 +59,11 @@ export function ImportFlow({ onComplete, onImagesChange }: Props) {
         await saveMediaBlob(blobId, file);
 
         tempImages.push({
-          id: `img-${Date.now()}-${baseIndex + i}`,
-          blobId,
-          aiDescription: "AI 正在分析图片...",
-          status: "pending",
-        });
+        id: `img-${Date.now()}-${baseIndex + i}`,
+        blobId,
+        materialName: `素材 ${baseIndex + i + 1}`,
+        status: "pending",
+      });
       }
 
       // 如果是第一次，创建批次；否则更新现有批次
@@ -75,58 +75,6 @@ export function ImportFlow({ onComplete, onImagesChange }: Props) {
       // 追加到现有图片列表
       setImages((prev) => [...prev, ...tempImages]);
       setLoading(false);
-
-      // 第二阶段：异步调用 AI 读图（逐个更新）
-      for (let i = 0; i < tempImages.length; i++) {
-        const img = tempImages[i];
-        const file = files[i];
-        if (!file.type.startsWith("image/")) continue;
-
-        let aiDescription = `图片 ${baseIndex + i + 1}`;
-        let detectedKind: MaterialKind = "观察";
-        let suggestedTags: string[] = [];
-        
-        try {
-          const rawDescription = await readImage(file, settings);
-          aiDescription = rawDescription;
-          
-          // 智能识别素材类型和标签
-          const lowerDesc = rawDescription.toLowerCase();
-          
-          // 检测是否是人物照片
-          if (lowerDesc.includes('人') || lowerDesc.includes('男') || lowerDesc.includes('女') || 
-              lowerDesc.includes('孩子') || lowerDesc.includes('小朋友') || lowerDesc.includes('朋友') ||
-              lowerDesc.includes('家人') || lowerDesc.includes('同学') || lowerDesc.includes('老师') ||
-              lowerDesc.includes('portrait') || lowerDesc.includes('person') || lowerDesc.includes('face')) {
-            detectedKind = "人物";
-            
-            // 提取人物特征作为标签
-            if (lowerDesc.includes('笑') || lowerDesc.includes('开心')) suggestedTags.push('笑容');
-            if (lowerDesc.includes('跑') || lowerDesc.includes('跳')) suggestedTags.push('运动');
-            if (lowerDesc.includes('读') || lowerDesc.includes('书')) suggestedTags.push('阅读');
-          }
-          
-          // 根据内容添加通用标签
-          if (lowerDesc.includes('自然') || lowerDesc.includes('树') || lowerDesc.includes('花')) suggestedTags.push('自然');
-          if (lowerDesc.includes('动物') || lowerDesc.includes('猫') || lowerDesc.includes('狗')) suggestedTags.push('动物');
-          if (lowerDesc.includes('建筑') || lowerDesc.includes('房子') || lowerDesc.includes('楼')) suggestedTags.push('建筑');
-          if (lowerDesc.includes('食物') || lowerDesc.includes('吃') || lowerDesc.includes('美食')) suggestedTags.push('食物');
-          
-        } catch (err) {
-          console.error("AI 读图失败:", err);
-          aiDescription = `图片 ${baseIndex + i + 1}（AI 分析失败：${(err as Error).message}）`;
-        }
-
-        // 更新单个图片的描述和智能识别结果
-        setImages((prev) =>
-          prev.map((item) => (item.id === img.id ? { 
-            ...item, 
-            aiDescription,
-            kind: detectedKind,
-            tags: suggestedTags
-          } : item))
-        );
-      }
     } catch (err) {
       console.error("Failed to upload images:", err);
       alert("上传失败，请重试");
@@ -146,22 +94,46 @@ export function ImportFlow({ onComplete, onImagesChange }: Props) {
     );
   }
 
+  // 生成观察指导
+  async function handleGenerateGuidance(imageId: string, whyTook: string, myThoughts: string) {
+    try {
+      const img = images.find(i => i.id === imageId);
+      if (!img) throw new Error("图片未找到");
+
+      const blob = await getMediaBlob(img.blobId);
+      if (!blob) throw new Error("图片数据未找到");
+
+      const settings = await getAiSettingsAction();
+      
+      // 调用AI生成观察指导（一句话提示）
+      const guidance = await generateObservationGuidance(blob, whyTook, myThoughts, settings);
+      
+      // 更新图片的观察指导
+      updateImage(imageId, { guidanceHint: guidance });
+      
+    } catch (err) {
+      console.error("生成观察指导失败:", err);
+      throw err;
+    }
+  }
+
   // 保存所有标记为 saved 的图片到素材库
   async function confirmAll() {
     setConfirmingAll(true);
     try {
       const saved = images.filter((img) => img.status === "saved");
       
-      for (const img of saved) {
+      for (let i = 0; i < saved.length; i++) {
+        const img = saved[i];
         const blob = await getMediaBlob(img.blobId);
         if (!blob) continue;
 
         await createMaterialAction({
-          title: img.aiDescription,
+          title: img.materialName || `素材 ${i + 1}`,
           kind: img.kind || "观察",
-          tags: (img.tags || []).join(", "),
-          iNoticed: img.iNoticed ?? "",
-          itRemindsMe: img.itRemindsMe ?? "",
+          tags: "", // 不再使用标签
+          iNoticed: img.whyTook ?? "", // 我为什么拍它
+          itRemindsMe: img.myThoughts ?? "", // 我的想法
           aiAllowed: true,
           mediaKind: "photo",
           media: blob,
@@ -301,6 +273,7 @@ export function ImportFlow({ onComplete, onImagesChange }: Props) {
               key={img.id}
               image={img}
               onUpdate={(updates) => updateImage(img.id, updates)}
+              onGenerateGuidance={handleGenerateGuidance}
             />
           ))}
         </div>

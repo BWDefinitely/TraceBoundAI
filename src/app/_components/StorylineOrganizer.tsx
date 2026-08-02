@@ -4,22 +4,33 @@ import { useState, useEffect } from "react";
 import type { Material, Story, StoryStructure } from "../../lib/store";
 import { saveStoryAction } from "../_actions";
 import { getMediaBlob } from "../../lib/client-store";
+import { MaterialDetailModal } from "./MaterialDetailModal";
+import { AlchemyWorkbench } from "./AlchemyWorkbench";
 
-type SlotKey = "qi" | "cheng" | "zhuan" | "he";
+type SlotKey = "discovery" | "goal" | "accident" | "action" | "change";
 const SLOTS: { key: SlotKey; label: string; desc: string }[] = [
-  { key: "qi", label: "起", desc: "故事的开头" },
-  { key: "cheng", label: "承", desc: "事情的发展" },
-  { key: "zhuan", label: "转", desc: "意外或转折" },
-  { key: "he", label: "合", desc: "故事的结局" },
+  { key: "discovery", label: "发现", desc: "主角发现了什么" },
+  { key: "goal", label: "目标", desc: "主角想要什么" },
+  { key: "accident", label: "意外", desc: "遇到了什么困难" },
+  { key: "action", label: "行动", desc: "主角如何应对" },
+  { key: "change", label: "改变", desc: "最后有什么变化" },
 ];
 
 const MATERIALS_PER_PAGE = 20;
 
-// 素材整理：左侧素材库（可拖拽），右侧故事线起承转合（可放置素材缩略图）
-export function StorylineOrganizer({ materials, story }: { materials: Material[]; story: Story }) {
+interface Props {
+  materials: Material[];
+  story: Story;
+  onThinkMore?: (slotKey: SlotKey) => void;
+}
+
+// 素材整理：左侧素材库（纵向），右侧场景列表（纵向滚动）
+export function StorylineOrganizer({ materials, story, onThinkMore }: Props) {
   const [structure, setStructure] = useState<StoryStructure>(story.structure);
   const [dragId, setDragId] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(MATERIALS_PER_PAGE);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [showAlchemy, setShowAlchemy] = useState(false);
 
   const visibleMaterials = materials.slice(0, displayCount);
   const hasMore = displayCount < materials.length;
@@ -66,44 +77,79 @@ export function StorylineOrganizer({ materials, story }: { materials: Material[]
     return materials.find((m) => m.id === id);
   }
 
+  function canThinkMore(slotKey: SlotKey): boolean {
+    const slot = structure[slotKey];
+    // 必须有内容才能点击想更多
+    return (slot.text?.trim().length ?? 0) > 0;
+  }
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "var(--space-6)" }}>
-      {/* 左侧素材库 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-        <h3 style={{ fontSize: "1.05rem", margin: 0 }}>素材库</h3>
-        <p className="muted" style={{ fontSize: "0.8rem" }}>拖动素材到右侧的起承转合格子里</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", maxHeight: "68vh", overflowY: "auto" }}>
-          {materials.length === 0 ? (
-            <div className="card" style={{ padding: "var(--space-4)", textAlign: "center" }}>
-              <p className="muted" style={{ fontSize: "0.85rem" }}>还没有素材</p>
-            </div>
-          ) : (
-            <>
-              {visibleMaterials.map((m) => (
-                <DraggableMaterialCard 
-                  key={m.id} 
-                  material={m} 
-                  isDragging={dragId === m.id}
-                  onDragStart={() => setDragId(m.id)}
-                  onDragEnd={() => setDragId(null)}
-                />
-              ))}
-              {hasMore && (
-                <button 
-                  onClick={loadMore}
-                  className="btn-secondary"
-                  style={{ fontSize: "0.85rem", padding: "var(--space-2)" }}
-                >
-                  加载更多 ({materials.length - displayCount} 项)
-                </button>
-              )}
-            </>
-          )}
+    <div style={{ display: "flex", gap: "var(--space-5)", height: "calc(100vh - 250px)" }}>
+      {/* 左侧：素材库 */}
+      <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h3 style={{ fontSize: "1.05rem", margin: 0 }}>素材库</h3>
+          <button
+            onClick={() => setShowAlchemy(!showAlchemy)}
+            className="btn-secondary"
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+          >
+            {showAlchemy ? "✕ 关闭" : "⚗️ 素材炼金"}
+          </button>
         </div>
+        
+        {showAlchemy ? (
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <AlchemyWorkbench materials={materials} />
+          </div>
+        ) : (
+          <>
+            <p className="muted" style={{ fontSize: "0.8rem", margin: 0 }}>
+              拖动素材到右侧场景卡片中
+            </p>
+
+            <div style={{ 
+              flex: 1, 
+              display: "flex", 
+              flexDirection: "column", 
+              gap: "var(--space-2)", 
+              overflowY: "auto",
+              paddingRight: "var(--space-2)"
+            }}>
+              {materials.length === 0 ? (
+                <div className="card" style={{ padding: "var(--space-4)", textAlign: "center" }}>
+                  <p className="muted" style={{ fontSize: "0.85rem" }}>还没有素材</p>
+                </div>
+              ) : (
+                <>
+                  {visibleMaterials.map((m) => (
+                    <DraggableMaterialCard 
+                      key={m.id} 
+                      material={m} 
+                      isDragging={dragId === m.id}
+                      onDragStart={() => setDragId(m.id)}
+                      onDragEnd={() => setDragId(null)}
+                      onClick={() => setSelectedMaterial(m)}
+                    />
+                  ))}
+                  {hasMore && (
+                    <button 
+                      onClick={loadMore}
+                      className="btn-secondary"
+                      style={{ fontSize: "0.8rem", padding: "var(--space-2)" }}
+                    >
+                      加载更多 ({materials.length - displayCount})
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* 右侧故事线 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      {/* 右侧：场景列表（纵向滚动） */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
         {/* 元数据参考 */}
         <div className="card" style={{ padding: "var(--space-3)", display: "flex", flexWrap: "wrap", gap: "var(--space-3)", fontSize: "0.82rem", color: "var(--ink-soft)" }}>
           <span>📅 {story.metadata.time || "—"}</span>
@@ -112,9 +158,20 @@ export function StorylineOrganizer({ materials, story }: { materials: Material[]
           <span>⚡ {story.metadata.event || "—"}</span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-4)" }}>
+        {/* 纵向滚动的场景列表 */}
+        <div 
+          style={{ 
+            flex: 1,
+            display: "flex", 
+            flexDirection: "column",
+            gap: "var(--space-4)", 
+            overflowY: "auto",
+            paddingRight: "var(--space-2)"
+          }}
+        >
           {SLOTS.map((slot) => {
             const s = structure[slot.key];
+            const canClick = canThinkMore(slot.key);
             return (
               <div
                 key={slot.key}
@@ -123,56 +180,69 @@ export function StorylineOrganizer({ materials, story }: { materials: Material[]
                 className="card"
                 style={{
                   padding: "var(--space-4)",
-                  minHeight: 180,
                   display: "flex",
                   flexDirection: "column",
-                  gap: "var(--space-2)",
+                  gap: "var(--space-3)",
                   border: dragId ? "2px dashed var(--accent)" : "1px solid var(--line)",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)" }}>
-                  <span style={{ fontSize: "1.3rem", fontWeight: 700, fontFamily: "var(--font-serif)", color: "var(--accent)" }}>{slot.label}</span>
-                  <span style={{ fontSize: "0.78rem", color: "var(--ink-soft)" }}>{slot.desc}</span>
+                {/* 场景标题和"想更多"按钮 */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+                    <span style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--accent)" }}>{slot.label}</span>
+                    <span style={{ fontSize: "0.8rem", color: "var(--ink-soft)" }}>{slot.desc}</span>
+                  </div>
+                  {onThinkMore && (
+                    <button
+                      onClick={() => canClick && onThinkMore(slot.key)}
+                      className="btn-secondary"
+                      disabled={!canClick}
+                      style={{
+                        fontSize: "0.8rem",
+                        padding: "6px 12px",
+                        whiteSpace: "nowrap",
+                        opacity: canClick ? 1 : 0.4,
+                        cursor: canClick ? "pointer" : "not-allowed",
+                      }}
+                      title={!canClick ? "请先填写内容后才能点击" : undefined}
+                    >
+                      💭 想更多
+                    </button>
+                  )}
                 </div>
 
+                {/* 大号文本输入框 */}
                 <textarea
                   value={s.text}
                   onChange={(e) => updateSlotText(slot.key, e.target.value)}
                   onBlur={() => persist(structure)}
-                  placeholder="写一句话..."
-                  style={{ minHeight: 50, resize: "vertical", fontSize: "0.85rem" }}
+                  placeholder={`在这里描述「${slot.label}」的内容...`}
+                  style={{ 
+                    minHeight: 120, 
+                    resize: "vertical", 
+                    fontSize: "0.9rem",
+                    lineHeight: 1.6
+                  }}
                 />
 
                 {/* 素材缩略图 */}
                 {s.linkedMaterials.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
-                    {s.linkedMaterials.map((id) => {
-                      const m = materialById(id);
-                      return (
-                        <div
-                          key={id}
-                          title={m?.title}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            padding: "2px 8px",
-                            background: "var(--accent-wash)",
-                            border: "1px solid var(--accent-soft)",
-                            borderRadius: "var(--radius-sm)",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          🖼 {m?.title?.slice(0, 8) ?? "素材"}
-                          <button
-                            onClick={() => removeMaterial(slot.key, id)}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-soft)", padding: 0 }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      );
-                    })}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                    <span style={{ fontSize: "0.75rem", color: "var(--ink-soft)", fontWeight: 600 }}>
+                      关联素材 ({s.linkedMaterials.length})
+                    </span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                      {s.linkedMaterials.map((id) => {
+                        const m = materialById(id);
+                        return (
+                          <LinkedMaterialChip
+                            key={id}
+                            material={m}
+                            onRemove={() => removeMaterial(slot.key, id)}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -180,6 +250,52 @@ export function StorylineOrganizer({ materials, story }: { materials: Material[]
           })}
         </div>
       </div>
+
+      {/* 素材详情弹窗 */}
+      {selectedMaterial && (
+        <MaterialDetailModal
+          material={selectedMaterial}
+          onClose={() => setSelectedMaterial(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// 关联素材的小芯片
+function LinkedMaterialChip({ material, onRemove }: { material: Material | undefined; onRemove: () => void }) {
+  return (
+    <div
+      title={material?.title}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "4px 10px",
+        background: "var(--accent-wash)",
+        border: "1px solid var(--accent-soft)",
+        borderRadius: "var(--radius)",
+        fontSize: "0.8rem",
+      }}
+    >
+      <span className="tag" style={{ fontSize: "0.65rem", margin: 0 }}>{material?.kind}</span>
+      <span style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {material?.title ?? "素材"}
+      </span>
+      <button
+        onClick={onRemove}
+        style={{ 
+          background: "none", 
+          border: "none", 
+          cursor: "pointer", 
+          color: "var(--ink-soft)", 
+          padding: 0,
+          fontSize: "1.1rem",
+          lineHeight: 1,
+        }}
+      >
+        ×
+      </button>
     </div>
   );
 }
@@ -189,12 +305,14 @@ function DraggableMaterialCard({
   material, 
   isDragging, 
   onDragStart, 
-  onDragEnd 
+  onDragEnd,
+  onClick 
 }: { 
   material: Material; 
   isDragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onClick: () => void;
 }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -218,12 +336,16 @@ function DraggableMaterialCard({
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onClick={onClick}
       className="card"
       style={{ 
         padding: "var(--space-3)", 
-        cursor: "grab", 
-        opacity: isDragging ? 0.5 : 1 
+        cursor: isDragging ? "grabbing" : "pointer", 
+        opacity: isDragging ? 0.5 : 1,
+        transition: "opacity 0.2s ease, transform 0.2s ease",
       }}
+      onMouseEnter={(e) => !isDragging && (e.currentTarget.style.transform = "translateY(-2px)")}
+      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
     >
       <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
         {imageUrl && (
@@ -244,16 +366,18 @@ function DraggableMaterialCard({
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <span className="tag" style={{ fontSize: "0.7rem" }}>{material.kind}</span>
-          <div style={{ fontSize: "0.9rem", fontWeight: 600, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ 
+            fontSize: "0.9rem", 
+            fontWeight: 600, 
+            marginTop: 4, 
+            overflow: "hidden", 
+            textOverflow: "ellipsis",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical"
+          }}>
             {material.title}
           </div>
-          {material.tags && material.tags.length > 0 && (
-            <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {material.tags.slice(0, 3).map((tag, i) => (
-                <span key={i} style={{ fontSize: "0.7rem", color: "var(--ink-soft)" }}>#{tag}</span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>

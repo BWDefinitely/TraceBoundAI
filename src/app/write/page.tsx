@@ -158,10 +158,11 @@ function StoriesGrid({
 function StructureMini({ structure }: { structure: StoryStructure }) {
   const s = structure ?? {};
   const items = [
-    { key: "起", v: s.qi?.text ?? "" },
-    { key: "承", v: s.cheng?.text ?? "" },
-    { key: "转", v: s.zhuan?.text ?? "" },
-    { key: "合", v: s.he?.text ?? "" },
+    { key: "发现", v: s.discovery?.text ?? "" },
+    { key: "目标", v: s.goal?.text ?? "" },
+    { key: "意外", v: s.accident?.text ?? "" },
+    { key: "行动", v: s.action?.text ?? "" },
+    { key: "改变", v: s.change?.text ?? "" },
   ];
   return (
     <div style={{ display: "flex", gap: "0.3rem" }}>

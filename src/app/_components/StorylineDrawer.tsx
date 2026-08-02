@@ -88,13 +88,13 @@ export function StorylineDrawer({ story, open, onClose }: Props) {
           </div>
         </section>
 
-        {/* 起承转合 */}
+        {/* 五场景结构 */}
         <section>
-          <h4 style={{ fontSize: "0.9rem", color: "var(--ink-soft)", marginBottom: "var(--space-2)" }}>起承转合</h4>
+          <h4 style={{ fontSize: "0.9rem", color: "var(--ink-soft)", marginBottom: "var(--space-2)" }}>场景结构</h4>
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            {(["qi", "cheng", "zhuan", "he"] as const).map((slotKey, idx) => {
+            {(["discovery", "goal", "accident", "action", "change"] as const).map((slotKey, idx) => {
               const slotData = structure[slotKey];
-              const labels = ["起", "承", "转", "合"];
+              const labels = ["发现", "目标", "意外", "行动", "改变"];
               return (
                 <div
                   key={slotKey}
@@ -102,7 +102,7 @@ export function StorylineDrawer({ story, open, onClose }: Props) {
                   style={{ padding: "var(--space-3)", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontWeight: 700, fontFamily: "var(--font-serif)", color: "var(--accent)" }}>
+                    <span style={{ fontWeight: 700, color: "var(--accent)" }}>
                       {labels[idx]}
                     </span>
                     {slotData.linkedMaterials.length > 0 && (
