@@ -867,3 +867,28 @@ function mockGeneratedImage(): Blob {
   for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
   return new Blob([array], { type: "image/png" });
 }
+
+// ---------- 本地模拟兜底检测（供 AI 设置里的「模型测试」使用） ----------
+
+// 判断文本是否为「真实模型调用失败后被本地模拟兜底」的结果。
+// mockAgentResponse / mockImageDescription 在兜底时会带 "AI 调用失败，本次由本地模拟" 标记。
+export function isMockFallbackText(text: string): boolean {
+  return text.includes("AI 调用失败") && text.includes("本地模拟");
+}
+
+// 判断 Blob 是否为本地模拟生成的占位图（生图 API 失败时的兜底产物）。
+export async function isMockFallbackBlob(blob: Blob): Promise<boolean> {
+  try {
+    const mock = mockGeneratedImage();
+    const [a, b] = await Promise.all([blob.arrayBuffer(), mock.arrayBuffer()]);
+    if (a.byteLength !== b.byteLength) return false;
+    const va = new Uint8Array(a);
+    const vb = new Uint8Array(b);
+    for (let i = 0; i < va.length; i++) {
+      if (va[i] !== vb[i]) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}

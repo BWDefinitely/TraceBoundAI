@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { getAiSettings } from "../../lib/client-store";
-import { askAgent, readImage, generateImage } from "../../lib/ai";
+import { askAgent, readImage, generateImage, isMockFallbackText, isMockFallbackBlob } from "../../lib/ai";
 
 type TestStatus = "idle" | "testing" | "success" | "error";
 
@@ -28,6 +28,14 @@ export function ModelTestPanel() {
         userPrompt: "请用一句话回答：你是谁？",
         settings,
       });
+      // 真实模型失败时 askAgent 会静默回退到本地模拟，这里需要识别出来并如实报错
+      if (isMockFallbackText(reply)) {
+        setMainResult(
+          `❌ 失败：真实模型调用失败，以下内容为本地模拟兜底，并非模型回复。\n请检查 API Key、Base URL 与网络后重试。\n\n${reply}`
+        );
+        setMainStatus("error");
+        return;
+      }
       setMainResult(`✅ 成功！模型回复：\n${reply}`);
       setMainStatus("success");
     } catch (err) {
@@ -55,6 +63,14 @@ export function ModelTestPanel() {
       });
 
       const description = await readImage(blob, settings);
+      // 读图失败时 readImage 会静默回退到本地模拟，识别并如实报错
+      if (isMockFallbackText(description)) {
+        setVisionResult(
+          `❌ 失败：真实读图模型调用失败，以下内容为本地模拟兜底，并非模型描述。\n请检查 Vision 配置后重试。\n\n${description}`
+        );
+        setVisionStatus("error");
+        return;
+      }
       setVisionResult(`✅ 成功！模型描述：\n${description}`);
       setVisionStatus("success");
     } catch (err) {
@@ -96,6 +112,19 @@ export function ModelTestPanel() {
       
       const blob = await generateImage("一个简单的红色圆圈", settings);
       console.log("[测试生图] 成功，blob大小:", blob.size, "类型:", blob.type);
+
+      // 真实生图失败时 generateImage 会静默回退到本地 1x1 占位图，识别并如实报错
+      const isMockBlob = await isMockFallbackBlob(blob);
+      if (isMockBlob && actualProvider !== "mock") {
+        const url = URL.createObjectURL(blob);
+        setGeneratedImageUrl(url);
+        setImageGenResult(
+          `❌ 失败：生图模型调用失败，返回的是本地模拟占位图（1x1）。\n请检查生图配置（Base URL / API Key）后重试。`
+        );
+        setImageGenStatus("error");
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       setGeneratedImageUrl(url);
       setImageGenResult(`✅ 成功！使用 ${actualProvider} 生成图片 (${(blob.size / 1024).toFixed(1)} KB)`);

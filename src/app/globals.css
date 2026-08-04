@@ -231,8 +231,9 @@ button:disabled {
   transform: none;
 }
 
-/* 输入框：白底大圆角 */
+/* 输入框：白底大圆角（含 password，API Key 输入框同样圆角） */
 input[type="text"],
+input[type="password"],
 input[type="search"],
 input[type="number"],
 input[type="email"],
