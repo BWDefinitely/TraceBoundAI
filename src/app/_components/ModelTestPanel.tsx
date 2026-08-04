@@ -131,7 +131,7 @@ export function ModelTestPanel() {
               padding: "var(--space-3)",
               background: "var(--surface)",
               borderRadius: "var(--radius)",
-              color: mainStatus === "error" ? "var(--red)" : "var(--ink)",
+              color: mainStatus === "error" ? "var(--danger)" : "var(--ink)",
             }}
           >
             {mainResult}
@@ -161,7 +161,7 @@ export function ModelTestPanel() {
               padding: "var(--space-3)",
               background: "var(--surface)",
               borderRadius: "var(--radius)",
-              color: visionStatus === "error" ? "var(--red)" : "var(--ink)",
+              color: visionStatus === "error" ? "var(--danger)" : "var(--ink)",
             }}
           >
             {visionResult}
@@ -192,7 +192,7 @@ export function ModelTestPanel() {
                 padding: "var(--space-3)",
                 background: "var(--surface)",
                 borderRadius: "var(--radius)",
-                color: imageGenStatus === "error" ? "var(--red)" : "var(--ink)",
+                color: imageGenStatus === "error" ? "var(--danger)" : "var(--ink)",
                 marginBottom: "var(--space-3)",
               }}
             >

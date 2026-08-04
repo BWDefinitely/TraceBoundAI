@@ -25,7 +25,7 @@ describe("materials (Trace) CRUD", () => {
   });
 
   it("更新 aiAllowed 与三问字段", async () => {
-    const m = await store.createMaterial({ title: "滴水声", kind: "对话" });
+    const m = await store.createMaterial({ title: "滴水声", kind: "观察" });
     const updated = await store.updateMaterial(m.id, { aiAllowed: false, itRemindsMe: "像敲门" });
     expect(updated?.aiAllowed).toBe(false);
     expect(updated?.itRemindsMe).toBe("像敲门");

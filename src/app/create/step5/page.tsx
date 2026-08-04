@@ -185,10 +185,14 @@ function Step5Content() {
       {/* 故事正文 */}
       <section className="card" style={{ marginBottom: "var(--space-5)", padding: "var(--space-4)" }}>
         <h2 style={{ fontSize: "1.3rem", marginBottom: "var(--space-4)" }}>{story.title}</h2>
-        <div style={{ display: "flex", gap: "var(--space-4)", fontSize: "0.9rem", color: "var(--ink-soft)", marginBottom: "var(--space-4)" }}>
-          {story.metadata.time && <span>📅 {story.metadata.time}</span>}
-          {story.metadata.place && <span>📍 {story.metadata.place}</span>}
-          {story.metadata.people.length > 0 && <span>👤 {story.metadata.people.join("、")}</span>}
+        <div style={{ display: "flex", gap: "var(--space-4)", fontSize: "0.9rem", color: "var(--ink-soft)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
+          {story.metadata.time && <span>📅 时间：{story.metadata.time}</span>}
+          {story.metadata.place && <span>📍 地点：{story.metadata.place}</span>}
+          {story.metadata.people.length > 0 && <span>👤 人物：{story.metadata.people.join("、")}</span>}
+          {story.metadata.event && <span>⚡ 事件：{story.metadata.event}</span>}
+          {!story.metadata.time && !story.metadata.place && story.metadata.people.length === 0 && !story.metadata.event && (
+            <span className="muted">（未填写故事设定）</span>
+          )}
         </div>
         <div
           style={{

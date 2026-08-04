@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useData } from "../_components/DataProvider";
 import { createMaterialAction, deleteMaterialAction, updateMaterialAction } from "../_actions";
 import { getMediaBlob } from "../../lib/client-store";
 import type { MaterialKind } from "../../lib/store";
 
-const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物", "物品"];
+const KINDS: MaterialKind[] = ["观察", "想法", "时间", "地点", "人物", "物品"];
 
 export default function MaterialsPage() {
   const { materials } = useData();
@@ -77,6 +77,7 @@ export default function MaterialsPage() {
 }
 
 function AddMaterialForm({ onSuccess }: { onSuccess: () => void }) {
+  const [userId, setUserId] = useState("");
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<MaterialKind>("观察");
   const [iNoticed, setINoticed] = useState("");
@@ -87,6 +88,10 @@ function AddMaterialForm({ onSuccess }: { onSuccess: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!userId.trim()) {
+      alert("请填写用户ID");
+      return;
+    }
     if (!title.trim()) {
       alert("请填写标题");
       return;
@@ -95,6 +100,7 @@ function AddMaterialForm({ onSuccess }: { onSuccess: () => void }) {
     setSaving(true);
     try {
       await createMaterialAction({
+        userId,
         title,
         kind,
         tags: "",
@@ -116,6 +122,18 @@ function AddMaterialForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="card" style={{ maxWidth: 720, margin: "0 auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+        {/* 用户ID */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <span style={{ fontWeight: 600 }}>用户ID *</span>
+          <input
+            type="text"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            placeholder="输入你的用户ID"
+            required
+          />
+        </label>
+
         {/* 标题 */}
         <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
           <span style={{ fontWeight: 600 }}>标题 *</span>
@@ -212,14 +230,21 @@ function MaterialsList({ materials, filter }: { materials: any[]; filter: Materi
 function MaterialCard({ material }: { material: any }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  // 加载图片
-  useState(() => {
-    if (material.mediaKind === "photo") {
-      getMediaBlob(material.id).then((blob) => {
-        if (blob) setImageUrl(URL.createObjectURL(blob));
-      });
-    }
-  });
+  // 加载图片：按素材 id 读取 IndexedDB 中的媒体 Blob
+  useEffect(() => {
+    if (material.mediaKind !== "photo") return;
+    let url: string | null = null;
+    let cancelled = false;
+    getMediaBlob(material.id).then((blob) => {
+      if (cancelled || !blob) return;
+      url = URL.createObjectURL(blob);
+      setImageUrl(url);
+    });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [material.id, material.mediaKind]);
 
   return (
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>

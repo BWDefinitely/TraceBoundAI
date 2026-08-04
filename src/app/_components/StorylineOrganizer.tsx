@@ -84,69 +84,73 @@ export function StorylineOrganizer({ materials, story, onThinkMore }: Props) {
   }
 
   return (
-    <div style={{ display: "flex", gap: "var(--space-5)", height: "calc(100vh - 250px)" }}>
-      {/* 左侧：素材库 */}
-      <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h3 style={{ fontSize: "1.05rem", margin: 0 }}>素材库</h3>
-          <button
-            onClick={() => setShowAlchemy(!showAlchemy)}
-            className="btn-secondary"
-            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
-          >
-            {showAlchemy ? "✕ 关闭" : "⚗️ 素材炼金"}
-          </button>
-        </div>
-        
-        {showAlchemy ? (
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            <AlchemyWorkbench materials={materials} />
-          </div>
-        ) : (
-          <>
-            <p className="muted" style={{ fontSize: "0.8rem", margin: 0 }}>
-              拖动素材到右侧场景卡片中
-            </p>
-
-            <div style={{ 
-              flex: 1, 
-              display: "flex", 
-              flexDirection: "column", 
-              gap: "var(--space-2)", 
-              overflowY: "auto",
-              paddingRight: "var(--space-2)"
-            }}>
-              {materials.length === 0 ? (
-                <div className="card" style={{ padding: "var(--space-4)", textAlign: "center" }}>
-                  <p className="muted" style={{ fontSize: "0.85rem" }}>还没有素材</p>
-                </div>
-              ) : (
-                <>
-                  {visibleMaterials.map((m) => (
-                    <DraggableMaterialCard 
-                      key={m.id} 
-                      material={m} 
-                      isDragging={dragId === m.id}
-                      onDragStart={() => setDragId(m.id)}
-                      onDragEnd={() => setDragId(null)}
-                      onClick={() => setSelectedMaterial(m)}
-                    />
-                  ))}
-                  {hasMore && (
-                    <button 
-                      onClick={loadMore}
-                      className="btn-secondary"
-                      style={{ fontSize: "0.8rem", padding: "var(--space-2)" }}
-                    >
-                      加载更多 ({materials.length - displayCount})
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </>
-        )}
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      {/* 顶部工具条：左侧标题 + 右上角素材炼金大按钮 */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--space-3)" }}>
+        <h3 style={{ fontSize: "1.1rem", margin: 0 }}>
+          素材整理
+          <span className="muted" style={{ fontSize: "0.85rem", fontWeight: 500, marginLeft: "var(--space-3)" }}>
+            点击素材卡可编辑，拖动可放入场景
+          </span>
+        </h3>
+        <button
+          onClick={() => setShowAlchemy(true)}
+          className="btn-primary"
+          style={{
+            fontSize: "1rem",
+            padding: "12px 26px",
+            borderRadius: "var(--radius-pill)",
+          }}
+        >
+          ⚗️ 素材炼金
+        </button>
       </div>
+
+      <div style={{ display: "flex", gap: "var(--space-5)", height: "calc(100vh - 300px)" }}>
+        {/* 左侧：素材库（仅素材，炼金已移至右上角弹层） */}
+        <div style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <h3 style={{ fontSize: "1.05rem", margin: 0 }}>素材库</h3>
+          <p className="muted" style={{ fontSize: "0.8rem", margin: 0 }}>
+            点击卡片查看/编辑，拖动素材到右侧场景卡片中
+          </p>
+
+          <div style={{ 
+            flex: 1, 
+            display: "flex", 
+            flexDirection: "column", 
+            gap: "var(--space-2)", 
+            overflowY: "auto",
+            paddingRight: "var(--space-2)"
+          }}>
+            {materials.length === 0 ? (
+              <div className="card" style={{ padding: "var(--space-4)", textAlign: "center" }}>
+                <p className="muted" style={{ fontSize: "0.85rem" }}>还没有素材</p>
+              </div>
+            ) : (
+              <>
+                {visibleMaterials.map((m) => (
+                  <DraggableMaterialCard 
+                    key={m.id} 
+                    material={m} 
+                    isDragging={dragId === m.id}
+                    onDragStart={() => setDragId(m.id)}
+                    onDragEnd={() => setDragId(null)}
+                    onClick={() => setSelectedMaterial(m)}
+                  />
+                ))}
+                {hasMore && (
+                  <button 
+                    onClick={loadMore}
+                    className="btn-secondary"
+                    style={{ fontSize: "0.8rem", padding: "var(--space-2)" }}
+                  >
+                    加载更多 ({materials.length - displayCount})
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
 
       {/* 右侧：场景列表（纵向滚动） */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
@@ -250,6 +254,7 @@ export function StorylineOrganizer({ materials, story, onThinkMore }: Props) {
           })}
         </div>
       </div>
+      </div>
 
       {/* 素材详情弹窗 */}
       {selectedMaterial && (
@@ -257,6 +262,35 @@ export function StorylineOrganizer({ materials, story, onThinkMore }: Props) {
           material={selectedMaterial}
           onClose={() => setSelectedMaterial(null)}
         />
+      )}
+
+      {/* 素材炼金全屏弹层：覆盖五步剧情结构 */}
+      {showAlchemy && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1200,
+            background: "linear-gradient(180deg, var(--sky) 0%, var(--sky-soft) 40%, var(--paper) 100%)",
+            overflowY: "auto",
+            padding: "var(--space-6)",
+          }}
+        >
+          <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "var(--space-3)" }}>
+              <div>
+                <h2 style={{ fontSize: "1.6rem", margin: 0 }}>⚗️ 素材炼金</h2>
+                <p className="muted" style={{ fontSize: "0.9rem", margin: 0, marginTop: "var(--space-1)" }}>
+                  融合素材的灵感，生成全新的场景图片
+                </p>
+              </div>
+              <button onClick={() => setShowAlchemy(false)} className="btn-secondary" style={{ fontSize: "0.9rem" }}>
+                ✕ 返回素材整理
+              </button>
+            </div>
+            <AlchemyWorkbench materials={materials} userId={story.userId} />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -2,16 +2,36 @@
 
 import Link from "next/link";
 import { useData } from "./_components/DataProvider";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
+  const router = useRouter();
   const { materials, stories, alchemy, reflections, settings, providerLabel } = useData();
   const provider = settings?.provider ?? "mock";
   const modelLabel = providerLabel.split(" · ")[1] ?? providerLabel;
   const active = stories.filter((s) => !s.completedAt);
   const done = stories.filter((s) => s.completedAt);
 
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newUserId, setNewUserId] = useState("");
+  const [newStoryTitle, setNewStoryTitle] = useState("");
+  const [reuseOldMaterials, setReuseOldMaterials] = useState(false);
+
   // 统计生成的场景图片总数
   const totalSceneImages = stories.reduce((sum, s) => sum + (s.sceneImages?.length ?? 0), 0);
+
+  function handleStartNewStory() {
+    if (!newUserId.trim()) {
+      alert("请输入用户ID（不能为空）");
+      return;
+    }
+    // 保存到 sessionStorage，传递给后续步骤；故事标题留空时默认「新故事」
+    sessionStorage.setItem("newStoryUserId", newUserId.trim());
+    sessionStorage.setItem("newStoryTitle", newStoryTitle.trim() || "新故事");
+    sessionStorage.setItem("newStoryReuseOld", reuseOldMaterials ? "1" : "0");
+    router.push("/create/step1");
+  }
 
   return (
     <div className="fade-in">
@@ -67,9 +87,10 @@ export default function HomePage() {
             number="1"
             title="创建新故事"
             description="按照 5 步向导创建故事：导入素材 → 填写元数据 → 炼金 → 撰写 → 回顾。"
-            href="/create/step1"
+            href="#"
             icon="✨"
             badge="开始"
+            onClick={() => setShowCreateDialog(true)}
           />
           <FeatureCard
             number="2"
@@ -126,9 +147,9 @@ export default function HomePage() {
         {active.length === 0 ? (
           <div className="card" style={{ padding: "var(--space-5)", textAlign: "center" }}>
             <p className="muted">还没有进行中的故事</p>
-            <Link href="/create/step1" className="btn-primary" style={{ marginTop: "var(--space-3)" }}>
+            <button onClick={() => setShowCreateDialog(true)} className="btn-primary" style={{ marginTop: "var(--space-3)" }}>
               创建新故事
-            </Link>
+            </button>
           </div>
         ) : (
           <div
@@ -221,6 +242,93 @@ export default function HomePage() {
           <span className="muted" style={{ marginLeft: 6 }}>· {modelLabel}</span>
         </div>
       </section>
+
+      {/* 创建新故事对话框 */}
+      {showCreateDialog && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowCreateDialog(false)}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: 480,
+              width: "90%",
+              padding: "var(--space-6)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "var(--space-4)" }}>创建新故事</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                <span style={{ fontSize: "0.95rem", fontWeight: 600 }}>
+                  用户ID <span style={{ color: "var(--danger)" }}>*</span>
+                </span>
+                <input
+                  type="text"
+                  value={newUserId}
+                  onChange={(e) => setNewUserId(e.target.value)}
+                  placeholder="输入你的ID（用于区分不同用户的素材和故事，不能为空）"
+                  style={{ fontSize: "0.95rem" }}
+                  required
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                <span style={{ fontSize: "0.95rem", fontWeight: 600 }}>故事标题</span>
+                <input
+                  type="text"
+                  value={newStoryTitle}
+                  onChange={(e) => setNewStoryTitle(e.target.value)}
+                  placeholder="输入故事标题"
+                  style={{ fontSize: "0.95rem" }}
+                />
+              </label>
+
+              {/* 复用之前导入的素材 */}
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", cursor: "pointer", margin: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={reuseOldMaterials}
+                  onChange={(e) => setReuseOldMaterials(e.target.checked)}
+                  style={{ width: 20, height: 20, cursor: "pointer", flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>复用之前导入的素材</div>
+                  <div className="muted" style={{ fontSize: "0.8rem" }}>
+                    勾选后，之前导入的同用户ID素材也将参与本次故事创作
+                  </div>
+                </div>
+              </label>
+
+              <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "flex-end", marginTop: "var(--space-2)" }}>
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowCreateDialog(false)}
+                >
+                  取消
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={handleStartNewStory}
+                >
+                  开始创作 →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

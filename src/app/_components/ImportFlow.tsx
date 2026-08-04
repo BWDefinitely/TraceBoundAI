@@ -6,13 +6,14 @@ import { ImportImageCard } from "./ImportImageCard";
 import type { MaterialKind } from "../../lib/store";
 import { createImportBatch, updateImportBatch, deleteImportBatch, saveMediaBlob, getMediaBlob, deleteMediaBlob } from "../../lib/client-store";
 import { createMaterialAction, getAiSettingsAction } from "../_actions";
-import { generateObservationGuidance } from "../../lib/ai";
+import { generateObservationGuidance, generateImageDescription } from "../../lib/ai";
 
 export interface ImportImage {
   id: string;
   blobId: string;
   materialName?: string; // 素材名字
   status: "pending" | "saved" | "discarded";
+  description?: string; // 素材描述（AI 读图生成的简单描述词，≤30字）
   whyTook?: string; // 我为什么拍它
   myThoughts?: string; // 我的想法
   guidanceHint?: string; // AI观察指导提示
@@ -20,11 +21,13 @@ export interface ImportImage {
 }
 
 interface Props {
+  userId: string;
   onComplete?: () => void;
   onImagesChange?: (hasImages: boolean) => void;
+  reuseOldMaterials?: boolean;
 }
 
-export function ImportFlow({ onComplete, onImagesChange }: Props) {
+export function ImportFlow({ userId, onComplete, onImagesChange, reuseOldMaterials }: Props) {
   const router = useRouter();
   const [batchId, setBatchId] = useState<string | null>(null);
   const [images, setImages] = useState<ImportImage[]>([]);
@@ -117,6 +120,25 @@ export function ImportFlow({ onComplete, onImagesChange }: Props) {
     }
   }
 
+  // AI生成观察：读图生成不超过30字的简单描述词，填入「素材描述」
+  async function handleGenerateDescription(imageId: string) {
+    try {
+      const img = images.find(i => i.id === imageId);
+      if (!img) throw new Error("图片未找到");
+
+      const blob = await getMediaBlob(img.blobId);
+      if (!blob) throw new Error("图片数据未找到");
+
+      const settings = await getAiSettingsAction();
+      const description = await generateImageDescription(blob, settings);
+
+      updateImage(imageId, { description });
+    } catch (err) {
+      console.error("AI生成观察失败:", err);
+      throw err;
+    }
+  }
+
   // 保存所有标记为 saved 的图片到素材库
   async function confirmAll() {
     setConfirmingAll(true);
@@ -129,9 +151,11 @@ export function ImportFlow({ onComplete, onImagesChange }: Props) {
         if (!blob) continue;
 
         await createMaterialAction({
+          userId: userId,
           title: img.materialName || `素材 ${i + 1}`,
           kind: img.kind || "观察",
           tags: "", // 不再使用标签
+          description: img.description ?? "", // 素材描述
           iNoticed: img.whyTook ?? "", // 我为什么拍它
           itRemindsMe: img.myThoughts ?? "", // 我的想法
           aiAllowed: true,
@@ -274,6 +298,7 @@ export function ImportFlow({ onComplete, onImagesChange }: Props) {
               image={img}
               onUpdate={(updates) => updateImage(img.id, updates)}
               onGenerateGuidance={handleGenerateGuidance}
+              onGenerateDescription={handleGenerateDescription}
             />
           ))}
         </div>

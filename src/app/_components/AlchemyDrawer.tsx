@@ -13,6 +13,7 @@ interface Props {
   history: AlchemyRecord[];
   providerLabel: string;
   handoff: HandoffTarget | null;
+  userId?: string;
 }
 
 type Slot = "A" | "B";
@@ -28,7 +29,7 @@ const RELATIONSHIP_HINTS = [
   "一个是线索，一个是结果",
 ];
 
-export function AlchemyDrawer({ open, onClose, materials, history, providerLabel, handoff }: Props) {
+export function AlchemyDrawer({ open, onClose, materials, history, providerLabel, handoff, userId }: Props) {
   const [slotA, setSlotA] = useState<Material | null>(null);
   const [slotB, setSlotB] = useState<Material | null>(null);
   const [dragOver, setDragOver] = useState<Slot | null>(null);

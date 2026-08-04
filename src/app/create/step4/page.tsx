@@ -20,6 +20,69 @@ const SLOT_LABELS: Record<string, string> = {
   change: "改变",
 };
 
+// ---------- 字数统计：先去掉 AI 标记（data-ai-mark）再数 ----------
+function stripHtmlForCount(html: string): string {
+  return html
+    .replace(/<span[^>]*data-ai-mark="[^"]*"[^>]*>.*?<\/span>/g, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, "");
+}
+
+// 转义用于在 HTML 中定位原文（避免特殊字符干扰）
+function escapeHtmlForSearch(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// 显眼的 AI 结构提示标记（≤10字）
+function hintMarkHtml(hint: string): string {
+  const h = escapeHtmlForSearch(hint.slice(0, 10));
+  return `<span class="ai-mark" data-ai-mark="hint" style="background:#FFF3DC;color:#B67014;border:1px dashed #F5A623;border-radius:8px;padding:0 6px;font-weight:700;font-size:0.9em;white-space:nowrap;">🔍${h}</span>`;
+}
+
+// 错别字标红标记
+function typoMarkHtml(word: string): string {
+  const w = escapeHtmlForSearch(word);
+  return `<span class="ai-mark" data-ai-mark="typo" style="color:#E7574C;background:#FCE4E2;border-bottom:2px solid #E7574C;border-radius:4px;padding:0 2px;">${w}</span>`;
+}
+
+// 在原文 anchor 第一次出现的位置之后，插入提示标记；找不到则返回原 html
+function insertHintAfterAnchor(html: string, anchor: string, hint: string): string {
+  const escaped = escapeHtmlForSearch(anchor);
+  if (!escaped) return html;
+  const idx = html.indexOf(escaped);
+  if (idx === -1) return html;
+  return html.slice(0, idx + escaped.length) + hintMarkHtml(hint) + html.slice(idx + escaped.length);
+}
+
+// 把错别字（原文片段）全部包上标红标记
+function wrapTypo(html: string, word: string): string {
+  const escaped = escapeHtmlForSearch(word);
+  if (!escaped || !html.includes(escaped)) return html;
+  return html.split(escaped).join(typoMarkHtml(word));
+}
+
+// 从 AI 回复里提取 JSON 数组（容错：支持前后有说明文字）
+function extractJsonArray<T>(text: string): T[] | null {
+  try {
+    const arr = JSON.parse(text.trim());
+    if (Array.isArray(arr)) return arr as T[];
+  } catch {
+    /* 继续尝试 */
+  }
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start !== -1 && end > start) {
+    try {
+      const arr = JSON.parse(text.slice(start, end + 1));
+      if (Array.isArray(arr)) return arr as T[];
+    } catch {
+      /* 无法解析 */
+    }
+  }
+  return null;
+}
+
 function Step4Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,6 +110,14 @@ function Step4Content() {
   const [sidebarOpen, setSidebarOpen] = useState(true); // 左侧故事线默认打开
   const [autoHint, setAutoHint] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
+  const [checking, setChecking] = useState<"none" | "structure" | "typo">("none");
+  const [checkNote, setCheckNote] = useState<string | null>(null);
+
+  const editorRef = useRef<HTMLDivElement>(null);
+  const cleanHtmlRef = useRef<string | null>(null); // 未加 AI 标记的正文 HTML 快照（用于清除标记还原）
+
+  // 根据当前故事的 userId 过滤素材
+  const filteredMaterials = story ? materials.filter((m) => m.userId === story.userId) : [];
 
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintShownRef = useRef(false);
@@ -55,8 +126,7 @@ function Step4Content() {
   // 初始化正文/字数
   useEffect(() => {
     if (story && !loaded) {
-      const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, '');
-      const pureTextLength = story.body ? stripHtml(story.body).length : 0;
+      const pureTextLength = story.body ? stripHtmlForCount(story.body).length : 0;
       
       setTitle(story.title);
       
@@ -74,9 +144,9 @@ function Step4Content() {
           const combinedText = sceneTexts.join('\n\n');
           setBody(combinedText);
           lastBodyRef.current = combinedText;
-          setUserWordCount(stripHtml(combinedText).length);
+          setUserWordCount(stripHtmlForCount(combinedText).length);
           // 保存到story
-          saveStoryAction(story.id, { body: combinedText, userWordCount: stripHtml(combinedText).length });
+          saveStoryAction(story.id, { body: combinedText, userWordCount: stripHtmlForCount(combinedText).length });
         } else {
           setBody(story.body);
           lastBodyRef.current = story.body;
@@ -124,11 +194,9 @@ function Step4Content() {
   }, [loaded]);
 
   function handleBodyChange(next: string) {
-    const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, '');
-    
     const prev = lastBodyRef.current;
-    const nextChars = stripHtml(next).length;
-    const prevChars = stripHtml(prev).length;
+    const nextChars = stripHtmlForCount(next).length;
+    const prevChars = stripHtmlForCount(prev).length;
     
     if (nextChars > prevChars) {
       setUserWordCount((c) => c + (nextChars - prevChars));
@@ -145,6 +213,141 @@ function Step4Content() {
     setBody(next);
     setAiWordCount((c) => c + aiChars);
     resetIdle();
+  }
+
+  // 拿到"未标记"的正文 HTML：优先用快照，否则取当前编辑器
+  function currentCleanHtml(): string {
+    return cleanHtmlRef.current ?? editorRef.current?.innerHTML ?? body;
+  }
+
+  // 应用标记后统一写入编辑器并同步状态
+  function applyMarkedHtml(markedHtml: string) {
+    if (cleanHtmlRef.current === null) {
+      cleanHtmlRef.current = editorRef.current?.innerHTML ?? body;
+    }
+    if (editorRef.current) {
+      editorRef.current.innerHTML = markedHtml;
+    }
+    handleBodyChange(markedHtml);
+  }
+
+  // 结构提示：AI 检查故事结构，若有改进空间，在编辑器原文位置后插入 ≤10 字显眼提示
+  async function handleStructureCheck() {
+    if (!story || !body.trim()) {
+      alert("先写一点内容再检查吧");
+      return;
+    }
+    if (checking !== "none") return;
+    setChecking("structure");
+    setCheckNote(null);
+    try {
+      const settings = await getAiSettings();
+      const structureText = (["discovery", "goal", "accident", "action", "change"] as const)
+        .map((k) => `${SLOT_LABELS[k]}：${story.structure[k].text || "(空)"}`)
+        .join("\n");
+      const prompt =
+        `你是儿童故事结构教练。故事采用五段结构：发现 / 目标 / 意外 / 行动 / 改变。\n\n` +
+        `请检查下面的故事结构和正文，找出最值得改进的 1-3 处位置。\n` +
+        `对每一处返回两条字段：\n` +
+        `- anchor：正文中恰好紧挨着改进位置的那句结尾片段（10-25字，必须是原文中真实存在的文字）\n` +
+        `- hint：不超过 10 个字的提示短语（例如"加一点意外""补充细节""冲突再大些"）\n\n` +
+        `故事结构：\n${structureText}\n\n故事正文：\n${stripHtmlForCount(body)}\n\n` +
+        `只返回 JSON 数组，不要返回任何其他文字。没有改进空间就返回 []。`;
+      const reply = await askAgent({ persona: "story-coach", userPrompt: prompt, settings });
+      const hints = extractJsonArray<{ anchor: string; hint: string }>(reply);
+
+      if (!hints || hints.length === 0) {
+        setCheckNote("AI 认为结构整体不错，暂时没有需要提示的地方");
+        return;
+      }
+
+      let html = currentCleanHtml();
+      let applied = 0;
+      for (const h of hints) {
+        const anchor = (h.anchor || "").trim();
+        const hint = (h.hint || "").trim().slice(0, 10);
+        if (!anchor || !hint) continue;
+        const next = insertHintAfterAnchor(html, anchor, hint);
+        if (next !== html) {
+          html = next;
+          applied++;
+        }
+      }
+      if (applied === 0) {
+        // 找不到 anchor 时兜底：在末尾追加一条提示，保持克制
+        const hint = (hints[0].hint || "这里可再想想").trim().slice(0, 10);
+        html = html + hintMarkHtml(hint);
+        applied = 1;
+      }
+      applyMarkedHtml(html);
+      setCheckNote(`已插入 ${applied} 处结构提示（选中可直接删除）`);
+    } catch (err) {
+      console.error("结构检查失败:", err);
+      alert("检查失败：" + (err as Error).message);
+    } finally {
+      setChecking("none");
+    }
+  }
+
+  // 检查错字：AI 找出错别字，在编辑器内标红（不改动原文文字）
+  async function handleTypoCheck() {
+    if (!story || !body.trim()) {
+      alert("先写一点内容再检查吧");
+      return;
+    }
+    if (checking !== "none") return;
+    setChecking("typo");
+    setCheckNote(null);
+    try {
+      const settings = await getAiSettings();
+      const prompt =
+        `请找出下面儿童故事中的错别字（错字、用词错误、明显的漏字），忽略标点和格式问题。\n` +
+        `每项返回：{"word":"出错的字词（必须是原文中真实出现的原文片段）","fix":"正确的写法"}\n\n` +
+        `故事正文：\n${stripHtmlForCount(body)}\n\n` +
+        `只返回 JSON 数组，最多 10 项，没有错别字就返回 []，不要返回任何其他文字。`;
+      const reply = await askAgent({ persona: "story-coach", userPrompt: prompt, settings });
+      const typos = extractJsonArray<{ word: string; fix?: string }>(reply);
+
+      if (!typos || typos.length === 0) {
+        setCheckNote("没发现明显的错别字，写得挺干净～");
+        return;
+      }
+
+      let html = currentCleanHtml();
+      let applied = 0;
+      for (const t of typos) {
+        const word = (t.word || "").trim();
+        if (!word) continue;
+        const next = wrapTypo(html, word);
+        if (next !== html) {
+          html = next;
+          applied++;
+        }
+      }
+      if (applied === 0) {
+        setCheckNote("AI 给出的字词在正文中没找到，可能已被修改");
+        return;
+      }
+      applyMarkedHtml(html);
+      setCheckNote(`已标红 ${applied} 处疑似错别字（只标记不改字，可点「清除标记」还原）`);
+    } catch (err) {
+      console.error("错字检查失败:", err);
+      alert("检查失败：" + (err as Error).message);
+    } finally {
+      setChecking("none");
+    }
+  }
+
+  // 清除所有 AI 标记，恢复检查前的原文
+  function handleClearMarks() {
+    const clean = cleanHtmlRef.current;
+    if (!clean) return;
+    cleanHtmlRef.current = null;
+    if (editorRef.current) {
+      editorRef.current.innerHTML = clean;
+    }
+    handleBodyChange(clean);
+    setCheckNote("已清除所有 AI 标记，原文未被动过");
   }
 
   async function handleSave() {
@@ -177,13 +380,13 @@ function Step4Content() {
     );
   }
 
-  const totalChars = body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, '').length;
+  const totalChars = stripHtmlForCount(body).length;
 
   // 获取关联的素材
   const getLinkedMaterials = (slotKey: string): Material[] => {
     const slot = story.structure[slotKey as keyof typeof story.structure];
     if (!slot || !slot.linkedMaterials) return [];
-    return materials.filter(m => slot.linkedMaterials.includes(m.id));
+    return filteredMaterials.filter(m => slot.linkedMaterials.includes(m.id));
   };
 
   return (
@@ -198,10 +401,11 @@ function Step4Content() {
       </header>
 
       {/* 工具条 */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
         <button className="btn-secondary" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? "◀ 收起故事线" : "▶ 展开故事线"}
         </button>
+
         <span style={{ fontSize: "0.82rem", color: "var(--ink-soft)" }}>
           总字数 {totalChars} · ✍️你 {userWordCount} · 🤖AI {aiWordCount}
         </span>
@@ -215,11 +419,44 @@ function Step4Content() {
             flexShrink: 0,
             display: "flex",
             flexDirection: "column",
-            gap: "var(--space-3)",
-            maxHeight: "calc(100vh - 300px)",
-            overflowY: "auto"
+            gap: "var(--space-2)",
+            maxHeight: "calc(100vh - 160px)",
+            overflowY: "auto",
+            position: "sticky",
+            top: 0,
           }}>
             <h3 style={{ fontSize: "1rem", margin: 0, color: "var(--accent)" }}>📋 故事线参考</h3>
+
+            {/* 故事设定（step2 元数据） */}
+            <div
+              className="card"
+              style={{
+                padding: "var(--space-3)",
+                background: "var(--surface)",
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "var(--accent)", marginBottom: "var(--space-2)", fontSize: "0.9rem" }}>
+                🧭 故事设定
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", fontSize: "0.82rem", color: "var(--ink)" }}>
+                <span style={{ lineHeight: 1.5 }}>
+                  <span style={{ color: "var(--ink-soft)" }}>📅 时间：</span>
+                  {story.metadata.time || <span style={{ color: "var(--ink-soft)" }}>—</span>}
+                </span>
+                <span style={{ lineHeight: 1.5 }}>
+                  <span style={{ color: "var(--ink-soft)" }}>📍 地点：</span>
+                  {story.metadata.place || <span style={{ color: "var(--ink-soft)" }}>—</span>}
+                </span>
+                <span style={{ lineHeight: 1.5 }}>
+                  <span style={{ color: "var(--ink-soft)" }}>👤 人物：</span>
+                  {story.metadata.people.length > 0 ? story.metadata.people.join("、") : <span style={{ color: "var(--ink-soft)" }}>—</span>}
+                </span>
+                <span style={{ lineHeight: 1.5 }}>
+                  <span style={{ color: "var(--ink-soft)" }}>⚡ 事件：</span>
+                  {story.metadata.event || <span style={{ color: "var(--ink-soft)" }}>—</span>}
+                </span>
+              </div>
+            </div>
             
             {(["discovery", "goal", "accident", "action", "change"] as const).map((slotKey) => {
               const slot = story.structure[slotKey];
@@ -230,11 +467,11 @@ function Step4Content() {
                   key={slotKey}
                   className="card"
                   style={{ 
-                    padding: "var(--space-3)",
+                    padding: "var(--space-2)",
                     background: "var(--surface)",
                   }}
                 >
-                  <div style={{ fontWeight: 600, color: "var(--accent)", marginBottom: "var(--space-2)", fontSize: "0.9rem" }}>
+                  <div style={{ fontWeight: 600, color: "var(--accent)", marginBottom: "var(--space-1)", fontSize: "0.9rem" }}>
                     {SLOT_LABELS[slotKey]}
                   </div>
                   
@@ -243,7 +480,11 @@ function Step4Content() {
                       fontSize: "0.85rem", 
                       lineHeight: 1.5, 
                       margin: 0,
-                      color: "var(--ink)"
+                      color: "var(--ink)",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
                     }}>
                       {slot.text}
                     </p>
@@ -252,7 +493,7 @@ function Step4Content() {
                   )}
                   
                   {linkedMats.length > 0 && (
-                    <div style={{ marginTop: "var(--space-2)", paddingTop: "var(--space-2)", borderTop: "1px solid var(--line)" }}>
+                    <div style={{ marginTop: "var(--space-1)", paddingTop: "var(--space-1)", borderTop: "1px solid var(--line)" }}>
                       <span style={{ fontSize: "0.75rem", color: "var(--ink-soft)" }}>
                         🖼 {linkedMats.length} 个素材
                       </span>
@@ -290,13 +531,23 @@ function Step4Content() {
                   💡 {autoHint}
                 </div>
               )}
-              <RichTextArea value={body} onChange={handleBodyChange} onBlur={handleSave} disabled={initializing} />
+              <RichTextArea value={body} onChange={handleBodyChange} onBlur={handleSave} disabled={initializing} editorRef={editorRef} />
               {initializing && <div className="muted" style={{ fontSize: "0.8rem" }}>准备中…</div>}
             </div>
           </div>
 
           {/* 右侧：AI Coach */}
-          <AiCoachPanel story={story} body={body} onInsertText={handleInsertText} />
+          <AiCoachPanel
+            story={story}
+            body={body}
+            onInsertText={handleInsertText}
+            checking={checking}
+            canClearMarks={!!cleanHtmlRef.current}
+            checkNote={checkNote}
+            onStructureCheck={handleStructureCheck}
+            onTypoCheck={handleTypoCheck}
+            onClearMarks={handleClearMarks}
+          />
         </div>
       </div>
 
@@ -323,13 +574,22 @@ function RichTextArea({
   onChange,
   onBlur,
   disabled,
+  editorRef,
 }: {
   value: string;
   onChange: (v: string) => void;
   onBlur: () => void;
   disabled?: boolean;
+  editorRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+
+  function setRef(el: HTMLDivElement | null) {
+    ref.current = el;
+    if (editorRef) {
+      (editorRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    }
+  }
 
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== value) {
@@ -350,7 +610,7 @@ function RichTextArea({
         <input type="color" onChange={(e) => exec("foreColor", e.target.value)} title="文字颜色" style={{ width: 32, height: 30, border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", cursor: "pointer" }} />
       </div>
       <div
-        ref={ref}
+        ref={setRef}
         contentEditable={!disabled}
         onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
         onBlur={onBlur}

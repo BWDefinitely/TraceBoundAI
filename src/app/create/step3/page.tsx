@@ -30,6 +30,9 @@ function Step3Content() {
 
   const story = stories.find((s) => s.id === storyId);
 
+  // 根据当前故事的 userId 过滤素材
+  const filteredMaterials = story ? materials.filter((m) => m.userId === story.userId) : [];
+
   function handleNext() {
     if (!storyId) {
       alert("未找到故事 ID，请先完成前面的步骤");
@@ -75,7 +78,7 @@ function Step3Content() {
           <div className="card" style={{ display: "inline-block", padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
             <span style={{ fontSize: "0.85rem", color: "var(--accent)" }}>📖 当前故事：</span>
             <span style={{ fontSize: "0.95rem", fontWeight: 600, marginLeft: "var(--space-2)" }}>
-              {story.metadata.event || story.title || "未命名故事"}
+              {story.title || story.metadata.event || "未命名故事"}
             </span>
           </div>
         )}
@@ -96,13 +99,13 @@ function Step3Content() {
           slotKey={thinkMoreScene}
           slotData={story.structure[thinkMoreScene]}
           story={story}
-          materials={materials}
+          materials={filteredMaterials}
           onClose={handleCloseThinkMore}
           onAdopt={(content) => handleAdoptContent(thinkMoreScene, content)}
         />
       ) : (
         <StorylineOrganizer 
-          materials={materials} 
+          materials={filteredMaterials} 
           story={story}
           onThinkMore={handleThinkMore}
         />

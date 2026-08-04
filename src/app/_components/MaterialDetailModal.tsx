@@ -1,16 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Material } from "../../lib/store";
+import type { Material, MaterialKind } from "../../lib/store";
 import { getMediaBlob } from "../../lib/client-store";
+import { updateMaterialAction } from "../_actions";
+
+const KINDS: MaterialKind[] = ["观察", "想法", "时间", "地点", "人物", "物品"];
 
 interface Props {
   material: Material;
   onClose: () => void;
 }
 
+// 素材详情弹窗：可编辑标题 / 类型 / 素材描述 / 三问，保存后同步更新素材库
 export function MaterialDetailModal({ material, onClose }: Props) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [title, setTitle] = useState(material.title);
+  const [kind, setKind] = useState<MaterialKind>(material.kind);
+  const [description, setDescription] = useState(material.description ?? "");
+  const [iNoticed, setINoticed] = useState(material.iNoticed);
+  const [itRemindsMe, setItRemindsMe] = useState(material.itRemindsMe);
+  const [stillUnsure, setStillUnsure] = useState(material.stillUnsure);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (material.mediaKind === 'photo') {
@@ -26,6 +37,26 @@ export function MaterialDetailModal({ material, onClose }: Props) {
       };
     }
   }, [material.id, material.mediaKind]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await updateMaterialAction(material.id, {
+        title: title.trim() || "未命名素材",
+        kind,
+        description,
+        iNoticed,
+        itRemindsMe,
+        stillUnsure,
+      });
+      onClose();
+    } catch (err) {
+      console.error("保存素材失败:", err);
+      alert("保存失败，请重试");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div 
@@ -47,7 +78,7 @@ export function MaterialDetailModal({ material, onClose }: Props) {
       <div 
         className="card"
         style={{
-          maxWidth: 600,
+          maxWidth: 620,
           width: "100%",
           maxHeight: "90vh",
           overflowY: "auto",
@@ -58,18 +89,15 @@ export function MaterialDetailModal({ material, onClose }: Props) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 关闭按钮 */}
+        {/* 头部 */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <h2 style={{ fontSize: "1.4rem", margin: 0, marginBottom: "var(--space-1)" }}>
-              {material.title}
+              ✏️ 编辑素材
             </h2>
-            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-              <span className="tag">{material.kind}</span>
-              <span style={{ fontSize: "0.75rem", color: "var(--ink-soft)" }}>
-                {new Date(material.createdAt).toLocaleDateString('zh-CN')}
-              </span>
-            </div>
+            <span style={{ fontSize: "0.75rem", color: "var(--ink-soft)" }}>
+              修改会同步保存到素材库
+            </span>
           </div>
           <button
             onClick={onClose}
@@ -91,7 +119,7 @@ export function MaterialDetailModal({ material, onClose }: Props) {
         {imageUrl && (
           <div style={{ 
             width: "100%", 
-            maxHeight: 300,
+            maxHeight: 260,
             borderRadius: "var(--radius)", 
             overflow: "hidden",
             background: "var(--surface)"
@@ -104,68 +132,83 @@ export function MaterialDetailModal({ material, onClose }: Props) {
           </div>
         )}
 
-        {/* 我为什么拍它 / 我注意到 */}
-        {material.iNoticed && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0, color: "var(--accent)" }}>
-              我为什么拍它
-            </h3>
-            <p style={{ 
-              fontSize: "0.9rem", 
-              lineHeight: 1.7, 
-              margin: 0,
-              padding: "var(--space-3)",
-              background: "var(--surface)",
-              borderRadius: "var(--radius)",
-            }}>
-              {material.iNoticed}
-            </p>
-          </div>
-        )}
+        {/* 标题 */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>素材名字</span>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="给这个素材起个名字..."
+            style={{ fontSize: "0.95rem" }}
+          />
+        </label>
 
-        {/* 我的想法 / 它让我想到 */}
-        {material.itRemindsMe && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0, color: "var(--accent)" }}>
-              我的想法
-            </h3>
-            <p style={{ 
-              fontSize: "0.9rem", 
-              lineHeight: 1.7, 
-              margin: 0,
-              padding: "var(--space-3)",
-              background: "var(--surface)",
-              borderRadius: "var(--radius)",
-            }}>
-              {material.itRemindsMe}
-            </p>
-          </div>
-        )}
+        {/* 类型 */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>素材类型</span>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as MaterialKind)}
+            style={{ fontSize: "0.9rem" }}
+          >
+            {KINDS.map((k) => (
+              <option key={k} value={k}>{k}</option>
+            ))}
+          </select>
+        </label>
 
-        {/* 标签 */}
-        {material.tags && material.tags.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: 0, color: "var(--ink-soft)" }}>
-              标签
-            </h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
-              {material.tags.map((tag, i) => (
-                <span 
-                  key={i}
-                  style={{
-                    fontSize: "0.8rem",
-                    padding: "4px 10px",
-                    background: "var(--accent-wash)",
-                    border: "1px solid var(--accent-soft)",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* 素材描述 */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>素材描述</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="这张图片里有什么？"
+            style={{ minHeight: 60, resize: "vertical", fontSize: "0.9rem", lineHeight: 1.6 }}
+          />
+        </label>
+
+        {/* 我为什么拍它 */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>我为什么拍它</span>
+          <textarea
+            value={iNoticed}
+            onChange={(e) => setINoticed(e.target.value)}
+            style={{ minHeight: 80, resize: "vertical", fontSize: "0.9rem", lineHeight: 1.6 }}
+          />
+        </label>
+
+        {/* 我的想法 */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>我的想法</span>
+          <textarea
+            value={itRemindsMe}
+            onChange={(e) => setItRemindsMe(e.target.value)}
+            style={{ minHeight: 80, resize: "vertical", fontSize: "0.9rem", lineHeight: 1.6 }}
+          />
+        </label>
+
+        {/* 还不确定 */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>还不确定</span>
+          <textarea
+            value={stillUnsure}
+            onChange={(e) => setStillUnsure(e.target.value)}
+            placeholder="还有哪些说不准的地方？"
+            style={{ minHeight: 60, resize: "vertical", fontSize: "0.9rem", lineHeight: 1.6 }}
+          />
+        </label>
+
+        {/* 操作按钮 */}
+        <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "flex-end", marginTop: "var(--space-2)" }}>
+          <button onClick={onClose} className="btn-secondary">
+            取消
+          </button>
+          <button onClick={handleSave} className="btn-primary" disabled={saving}>
+            {saving ? "保存中..." : "✓ 保存修改"}
+          </button>
+        </div>
       </div>
     </div>
   );

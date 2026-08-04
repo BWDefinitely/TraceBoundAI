@@ -138,7 +138,7 @@ export default function SettingsPage() {
         
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
           {/* 导出设置 */}
-          <div style={{ paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ padding: "var(--space-4)", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--line-soft)" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "var(--space-2)" }}>导出 AI 设置</h3>
             <p className="muted" style={{ fontSize: "0.9rem", marginBottom: "var(--space-3)", lineHeight: 1.6 }}>
               将 AI 配置（API Key、模型等）导出为加密文件，可用于备份或迁移到其他设备。
@@ -154,10 +154,10 @@ export default function SettingsPage() {
           </div>
 
           {/* 导入设置 */}
-          <div style={{ paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ padding: "var(--space-4)", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--line-soft)" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "var(--space-2)" }}>导入 AI 设置</h3>
             <p className="muted" style={{ fontSize: "0.9rem", marginBottom: "var(--space-3)", lineHeight: 1.6 }}>
-              从之前导出的加密文件恢复 AI 配置。<strong style={{ color: "var(--red)" }}>注意：导入会覆盖当前设置！</strong>
+              从之前导出的加密文件恢复 AI 配置。<strong style={{ color: "var(--danger)" }}>注意：导入会覆盖当前设置！</strong>
             </p>
             <input
               ref={settingsInputRef}
@@ -176,15 +176,15 @@ export default function SettingsPage() {
           </div>
 
           {/* 删除设置 */}
-          <div>
+          <div style={{ padding: "var(--space-4)", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--line-soft)" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "var(--space-2)" }}>删除 AI 设置</h3>
             <p className="muted" style={{ fontSize: "0.9rem", marginBottom: "var(--space-3)", lineHeight: 1.6 }}>
-              清除所有 AI 配置，包括 API Key。<strong style={{ color: "var(--red)" }}>此操作不可恢复！</strong>
+              清除所有 AI 配置，包括 API Key。<strong style={{ color: "var(--danger)" }}>此操作不可恢复！</strong>
             </p>
             <button 
               onClick={handleDeleteSettings} 
               className="btn-secondary"
-              style={{ background: "var(--red-wash)", color: "var(--red)", borderColor: "var(--red-soft)" }}
+              style={{ background: "var(--danger-wash)", color: "var(--danger)", borderColor: "var(--danger-wash)" }}
               disabled={!hasSettings}
             >
               🗑️ 删除 AI 设置
@@ -199,7 +199,7 @@ export default function SettingsPage() {
         
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
           {/* 导出数据 */}
-          <div style={{ paddingBottom: "var(--space-4)", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ padding: "var(--space-4)", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--line-soft)" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "var(--space-2)" }}>导出数据</h3>
             <p className="muted" style={{ fontSize: "0.9rem", marginBottom: "var(--space-3)", lineHeight: 1.6 }}>
               将所有素材、故事和媒体文件导出为JSON文件，保存到本地。可用于备份或迁移数据。
@@ -214,10 +214,10 @@ export default function SettingsPage() {
           </div>
 
           {/* 导入数据 */}
-          <div>
+          <div style={{ padding: "var(--space-4)", background: "var(--surface)", borderRadius: "var(--radius-lg)", border: "1px solid var(--line-soft)" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "var(--space-2)" }}>导入数据</h3>
             <p className="muted" style={{ fontSize: "0.9rem", marginBottom: "var(--space-3)", lineHeight: 1.6 }}>
-              从之前导出的JSON文件恢复数据。<strong style={{ color: "var(--red)" }}>注意：导入会覆盖现有数据！</strong>
+              从之前导出的JSON文件恢复数据。<strong style={{ color: "var(--danger)" }}>注意：导入会覆盖现有数据！</strong>
             </p>
             <input
               ref={fileInputRef}

@@ -16,6 +16,8 @@
   --ink-soft: #6E6885;
   --line: #E7E1F0;
   --line-soft: #F1EDF7;
+  /* 浅色面板底：卡片内部/侧栏/分段控件等次级区块背景 */
+  --surface: #F4F2FA;
 
   /* 主色：紫色 —— 所有主要 CTA / 图标底纹 */
   --accent: #7C63E7;

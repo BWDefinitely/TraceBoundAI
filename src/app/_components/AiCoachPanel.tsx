@@ -14,12 +14,30 @@ interface Props {
   body: string;
   // 当用户点选某个修改版本插入正文时回调
   onInsertText: (text: string, aiChars: number) => void;
+  // AI 检查工具（结构提示 / 检查错字 / 清除标记）
+  checking?: "none" | "structure" | "typo";
+  canClearMarks?: boolean;
+  checkNote?: string | null;
+  onStructureCheck?: () => void;
+  onTypoCheck?: () => void;
+  onClearMarks?: () => void;
 }
 
 // AI Coach：右侧对话面板。
 // - 普通对话：调用 story-coach persona，只给灵感，不代写。
 // - "帮我改写"：调用生成 3+ 版本供选择，选中后插入正文并计入 AI 字数。
-export function AiCoachPanel({ story, body, onInsertText }: Props) {
+// - "AI 检查"：结构提示 / 检查错字（在编辑器内做微量克制的插入/标红，不动原文）。
+export function AiCoachPanel({
+  story,
+  body,
+  onInsertText,
+  checking = "none",
+  canClearMarks = false,
+  checkNote = null,
+  onStructureCheck,
+  onTypoCheck,
+  onClearMarks,
+}: Props) {
   const [messages, setMessages] = useState<Msg[]>([
     { role: "ai", text: "嗨！我是你的故事小助手～ 我不会替你写故事，但可以陪你一起想点子。遇到卡住的地方，随时问我！" },
   ]);
@@ -99,10 +117,64 @@ export function AiCoachPanel({ story, body, onInsertText }: Props) {
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h3 style={{ fontSize: "1.05rem", margin: 0 }}>💬 AI Coach</h3>
-        <button className="btn-secondary" onClick={requestRevisions} disabled={loading} style={{ fontSize: "0.8rem" }}>
+      </div>
+
+      {/* AI 工具按钮组：四按钮整齐排列（2×2） */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "var(--space-2)",
+        }}
+      >
+        <button
+          className="btn-secondary"
+          onClick={requestRevisions}
+          disabled={loading}
+          style={{ fontSize: "0.82rem", padding: "8px 10px", width: "100%" }}
+        >
           帮我想续写
         </button>
+        <button
+          className="btn-amber"
+          onClick={onStructureCheck}
+          disabled={checking !== "none"}
+          style={{ fontSize: "0.82rem", padding: "8px 10px", width: "100%" }}
+        >
+          {checking === "structure" ? "检查中..." : "🧩 结构提示"}
+        </button>
+        <button
+          className="btn-blue"
+          onClick={onTypoCheck}
+          disabled={checking !== "none"}
+          style={{ fontSize: "0.82rem", padding: "8px 10px", width: "100%" }}
+        >
+          {checking === "typo" ? "检查中..." : "🔍 检查错字"}
+        </button>
+        <button
+          className="btn-ghost"
+          onClick={onClearMarks}
+          disabled={!canClearMarks}
+          style={{ fontSize: "0.82rem", padding: "8px 10px", width: "100%" }}
+        >
+          🧹 清除标记
+        </button>
       </div>
+      {checkNote && (
+        <div
+          style={{
+            padding: "7px 12px",
+            background: "var(--accent-wash)",
+            border: "1px solid var(--accent-soft)",
+            borderRadius: "var(--radius)",
+            fontSize: "0.82rem",
+            color: "var(--accent)",
+            lineHeight: 1.5,
+          }}
+        >
+          ✨ {checkNote}
+        </div>
+      )}
 
       {/* 消息列表 */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>

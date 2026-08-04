@@ -122,7 +122,7 @@ export function SceneAlchemyPanel({ slotKey, slotData, story, materials, onClose
           </p>
         </div>
 
-        <AlchemyWorkbench materials={materials} />
+        <AlchemyWorkbench materials={materials} userId={story.userId} />
       </div>
     </div>
   );

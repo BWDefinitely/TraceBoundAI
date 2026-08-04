@@ -11,7 +11,7 @@ import {
 import { Drawer } from "./Drawer";
 import type { HandoffTarget } from "./AppShell";
 
-const KINDS = ["观察", "感受", "想法", "对话", "人物", "物品"] as const;
+const KINDS = ["观察", "想法", "时间", "地点", "人物", "物品"] as const;
 type Kind = (typeof KINDS)[number];
 type MediaKind = "text" | "photo" | "audio";
 
@@ -21,9 +21,10 @@ interface Props {
   materials: MaterialWithBody[];
   firstThoughts: FirstThought[];
   handoff: HandoffTarget | null;
+  userId?: string;
 }
 
-export function MaterialsDrawer({ open, onClose, materials, firstThoughts, handoff }: Props) {
+export function MaterialsDrawer({ open, onClose, materials, firstThoughts, handoff, userId }: Props) {
   const [tab, setTab] = useState<"capture" | "review">("capture");
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -109,7 +110,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 
 // ---------- 采集：三问表单 ----------
 
-function CaptureBlock({ onSaved, onSwitch }: { onSaved: () => void; onSwitch: () => void }) {
+function CaptureBlock({ onSaved, onSwitch, userId }: { onSaved: () => void; onSwitch: () => void; userId?: string }) {
   const [kind, setKind] = useState<Kind>("观察");
   const [mediaKind, setMediaKind] = useState<MediaKind>("text");
   const [title, setTitle] = useState("");
@@ -131,6 +132,7 @@ function CaptureBlock({ onSaved, onSwitch }: { onSaved: () => void; onSwitch: ()
     setMediaPreview(null);
     setMediaKind("text");
     setAiAllowed(true);
+    setError(null);
   }
 
   function pickPhoto(file: File | null) {
@@ -140,8 +142,24 @@ function CaptureBlock({ onSaved, onSwitch }: { onSaved: () => void; onSwitch: ()
     setMediaKind("photo");
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    pickPhoto(file || null);
+  }
+
   return (
-    <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      {!userId && (
+        <div style={{ padding: "var(--space-3)", background: "var(--accent-wash)", borderRadius: "var(--radius)", fontSize: "0.85rem" }}>
+          ⚠️ 请先创建故事以获取用户ID
+        </div>
+      )}
+      {error && (
+        <div style={{ padding: "var(--space-3)", background: "var(--accent-wash)", borderRadius: "var(--radius)", fontSize: "0.85rem" }}>
+          ⚠️ {error}
+        </div>
+      )}
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       <div>
         <label>这是一份什么样的痕迹？</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
@@ -212,8 +230,6 @@ function CaptureBlock({ onSaved, onSwitch }: { onSaved: () => void; onSwitch: ()
 
       <AiAllowedToggle value={aiAllowed} onChange={setAiAllowed} />
 
-      {error && <div style={{ fontSize: "0.85rem", color: "var(--danger)" }}>{error}</div>}
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)" }}>
         <button className="btn-ghost" type="button" onClick={onSwitch}>
           去回顾 →
@@ -221,10 +237,11 @@ function CaptureBlock({ onSaved, onSwitch }: { onSaved: () => void; onSwitch: ()
         <button
           type="button"
           className="btn-primary"
-          disabled={pending}
+          disabled={pending || !userId}
           onClick={() =>
             startTransition(async () => {
               const res = await createMaterialAction({
+                userId: userId || "",
                 title,
                 kind,
                 tags,
@@ -244,8 +261,9 @@ function CaptureBlock({ onSaved, onSwitch }: { onSaved: () => void; onSwitch: ()
             })
           }
         >
-          {pending ? "保存中…" : "保存这份 Trace"}
+          {pending ? "保存中…" : !userId ? "请先创建故事获取用户ID" : "保存这份 Trace"}
         </button>
+      </div>
       </div>
     </div>
   );

@@ -72,10 +72,12 @@ export async function readMaterialMedia(id: string): Promise<Blob | undefined> {
 }
 
 export async function createMaterial(input: {
+  userId: string;
   title: string;
   kind: MaterialKind;
   body?: string;
   tags?: string[];
+  description?: string;
   iNoticed?: string;
   itRemindsMe?: string;
   stillUnsure?: string;
@@ -87,12 +89,14 @@ export async function createMaterial(input: {
   const now = nowIso();
   const m: Material = {
     id,
+    userId: input.userId,
     title: input.title.trim() || "未命名素材",
     kind: input.kind,
     tags: input.tags ?? [],
     createdAt: now,
     updatedAt: now,
     favorite: false,
+    description: input.description ?? '',
     iNoticed: input.iNoticed ?? '',
     itRemindsMe: input.itRemindsMe ?? '',
     stillUnsure: input.stillUnsure ?? '',
@@ -113,6 +117,7 @@ export async function updateMaterial(
     body?: string;
     tags?: string[];
     favorite?: boolean;
+    description?: string;
     iNoticed?: string;
     itRemindsMe?: string;
     stillUnsure?: string;
@@ -129,6 +134,7 @@ export async function updateMaterial(
   if (patch.kind !== undefined) next.kind = patch.kind;
   if (patch.tags !== undefined) next.tags = patch.tags;
   if (patch.favorite !== undefined) next.favorite = patch.favorite;
+  if (patch.description !== undefined) next.description = patch.description;
   if (patch.iNoticed !== undefined) next.iNoticed = patch.iNoticed;
   if (patch.itRemindsMe !== undefined) next.itRemindsMe = patch.itRemindsMe;
   if (patch.stillUnsure !== undefined) next.stillUnsure = patch.stillUnsure;
@@ -236,6 +242,7 @@ export async function getStory(id: string): Promise<Story | null> {
 }
 
 export async function createStory(input: {
+  userId: string;
   title?: string;
   body?: string;
   metadata?: StoryMetadata;
@@ -245,6 +252,7 @@ export async function createStory(input: {
   const now = nowIso();
   const s: Story = {
     id,
+    userId: input.userId,
     title: (input.title ?? "").trim() || "新故事",
     metadata: input.metadata ?? emptyMetadata(),
     structure: input.structure ?? emptyStructure(),

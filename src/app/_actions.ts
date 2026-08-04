@@ -44,7 +44,7 @@ import type {
 } from "../lib/store";
 import type { AiSettings, AiProvider } from "../lib/ai-settings";
 
-const KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物", "物品"];
+const KINDS: MaterialKind[] = ["观察", "想法", "时间", "地点", "人物", "物品"];
 const MEDIA_KINDS = ["text", "photo", "audio"] as const;
 type MediaKind = (typeof MEDIA_KINDS)[number];
 
@@ -72,9 +72,11 @@ async function logEvent(
 // ---------- materials (Traces) ----------
 
 export async function createMaterialAction(input: {
+  userId: string;
   title: string;
   kind: string;
   tags: string;
+  description?: string;
   iNoticed?: string;
   itRemindsMe?: string;
   stillUnsure?: string;
@@ -90,6 +92,7 @@ export async function createMaterialAction(input: {
       ? (input.mediaKind as MediaKind)
       : "text";
   const title = input.title.trim();
+  const description = (input.description ?? "").trim();
   const iNoticed = (input.iNoticed ?? "").trim();
   const itRemindsMe = (input.itRemindsMe ?? "").trim();
   const stillUnsure = (input.stillUnsure ?? "").trim();
@@ -100,9 +103,11 @@ export async function createMaterialAction(input: {
     ? input.tags.split(/[，,\s]+/).map((t) => t.trim()).filter(Boolean)
     : [];
   const m = await createMaterial({
+    userId: input.userId,
     title,
     kind,
     tags,
+    description,
     iNoticed,
     itRemindsMe,
     stillUnsure,
@@ -122,6 +127,7 @@ export async function updateMaterialAction(
     kind?: string;
     tags?: string;
     favorite?: boolean;
+    description?: string;
     iNoticed?: string;
     itRemindsMe?: string;
     stillUnsure?: string;
@@ -149,6 +155,7 @@ export async function updateMaterialAction(
     kind,
     tags,
     favorite: patch.favorite,
+    description: patch.description,
     iNoticed: patch.iNoticed,
     itRemindsMe: patch.itRemindsMe,
     stillUnsure: patch.stillUnsure,
@@ -217,8 +224,8 @@ export async function deleteIdeaCardAction(id: string) {
 
 // ---------- stories ----------
 
-export async function createStoryAction(title = "新故事") {
-  const s = await createStory({ title, body: "" });
+export async function createStoryAction(userId: string, title = "新故事") {
+  const s = await createStory({ userId, title, body: "" });
   refreshAll();
   return { id: s.id };
 }

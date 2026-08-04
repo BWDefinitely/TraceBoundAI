@@ -5,22 +5,25 @@ import type { ImportImage } from "./ImportFlow";
 import type { MaterialKind } from "../../lib/store";
 import { getMediaBlob } from "../../lib/client-store";
 
-const MATERIAL_KINDS: MaterialKind[] = ["观察", "感受", "想法", "对话", "人物", "物品"];
+const MATERIAL_KINDS: MaterialKind[] = ["观察", "想法", "时间", "地点", "人物", "物品"];
 const MAX_LENGTH = 500;
 
 interface Props {
   image: ImportImage;
   onUpdate: (updates: Partial<ImportImage>) => void;
   onGenerateGuidance?: (imageId: string, whyTook: string, myThoughts: string) => Promise<void>;
+  onGenerateDescription?: (imageId: string) => Promise<void>;
 }
 
-export function ImportImageCard({ image, onUpdate, onGenerateGuidance }: Props) {
+export function ImportImageCard({ image, onUpdate, onGenerateGuidance, onGenerateDescription }: Props) {
   const [materialName, setMaterialName] = useState(image.materialName || "");
+  const [description, setDescription] = useState(image.description ?? "");
   const [whyTook, setWhyTook] = useState(image.whyTook ?? "");
   const [myThoughts, setMyThoughts] = useState(image.myThoughts ?? "");
   const [kind, setKind] = useState<MaterialKind>(image.kind || "观察");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [guidanceHint, setGuidanceHint] = useState(image.guidanceHint ?? "");
 
   // 加载图片
@@ -51,6 +54,10 @@ export function ImportImageCard({ image, onUpdate, onGenerateGuidance }: Props) 
   }, [image.myThoughts]);
 
   useEffect(() => {
+    if (image.description !== undefined) setDescription(image.description);
+  }, [image.description]);
+
+  useEffect(() => {
     if (image.guidanceHint !== undefined) setGuidanceHint(image.guidanceHint);
   }, [image.guidanceHint]);
 
@@ -58,10 +65,24 @@ export function ImportImageCard({ image, onUpdate, onGenerateGuidance }: Props) 
     onUpdate({ 
       status: "saved", 
       materialName: materialName.trim() || "未命名素材",
+      description, 
       whyTook, 
       myThoughts, 
       kind 
     });
+  }
+
+  async function handleGenerateDescription() {
+    if (!onGenerateDescription) return;
+    setIsGeneratingDesc(true);
+    try {
+      await onGenerateDescription(image.id);
+    } catch (err) {
+      console.error("AI生成观察失败:", err);
+      alert(`生成失败：${(err as Error).message}`);
+    } finally {
+      setIsGeneratingDesc(false);
+    }
   }
 
   async function handleGenerateGuidance() {
@@ -148,6 +169,38 @@ export function ImportImageCard({ image, onUpdate, onGenerateGuidance }: Props) 
               ))}
             </select>
           </label>
+
+          {/* 素材描述 + AI生成观察 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>素材描述</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="这张图片里有什么？（AI 可以帮你生成）"
+              disabled={isSaved}
+              style={{
+                minHeight: 60,
+                resize: "vertical",
+                fontSize: "0.9rem",
+                lineHeight: 1.6,
+              }}
+            />
+            {!isSaved && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleGenerateDescription}
+                disabled={isGeneratingDesc || isDiscarded}
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: "0.82rem",
+                  padding: "6px 14px",
+                }}
+              >
+                {isGeneratingDesc ? "🤖 AI 读图中..." : "✨ AI生成观察"}
+              </button>
+            )}
+          </div>
 
           {/* 我为什么拍它 */}
           <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>

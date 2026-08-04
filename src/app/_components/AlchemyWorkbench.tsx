@@ -11,8 +11,13 @@ const PROMPT_HINTS = ["温暖的阳光", "一只可爱的小动物", "神秘的�
 
 const MATERIALS_PER_PAGE = 20;
 
+interface Props {
+  materials: Material[];
+  userId: string;
+}
+
 // 灵感炼金工作台：左侧素材库 + 右侧炼金面板（灵感生成 / 素材融合）
-export function AlchemyWorkbench({ materials }: { materials: Material[] }) {
+export function AlchemyWorkbench({ materials, userId }: Props) {
   const [mode, setMode] = useState<"text-to-image" | "material-fusion">("text-to-image");
   const [displayCount, setDisplayCount] = useState(MATERIALS_PER_PAGE);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -87,7 +92,7 @@ export function AlchemyWorkbench({ materials }: { materials: Material[] }) {
           </button>
         </div>
 
-        {mode === "text-to-image" ? <TextToImagePanel /> : <MaterialFusionPanel materials={materials} dragId={dragId} setDragId={setDragId} />}
+        {mode === "text-to-image" ? <TextToImagePanel userId={userId} /> : <MaterialFusionPanel materials={materials} dragId={dragId} setDragId={setDragId} userId={userId} />}
       </div>
     </div>
   );
@@ -208,7 +213,7 @@ function tabStyle(active: boolean): React.CSSProperties {
   };
 }
 
-function TextToImagePanel() {
+function TextToImagePanel({ userId }: { userId: string }) {
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ imageUrl: string; prompt: string } | null>(null);
@@ -245,6 +250,7 @@ function TextToImagePanel() {
       const response = await fetch(result.imageUrl);
       const blob = await response.blob();
       await createMaterialAction({
+        userId,
         title: title.trim() || `AI生成：${result.prompt.slice(0, 20)}`,
         kind: "观察",
         tags: tags.trim(),
@@ -354,7 +360,7 @@ function TextToImagePanel() {
   );
 }
 
-function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Material[]; dragId: string | null; setDragId: (id: string | null) => void }) {
+function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materials: Material[]; dragId: string | null; setDragId: (id: string | null) => void; userId: string }) {
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [materialPreviews, setMaterialPreviews] = useState<Map<string, string>>(new Map());
   const [brewing, setBrewing] = useState(false);
@@ -364,6 +370,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [iNoticed, setINoticed] = useState("");
   const [itRemindsMe, setItRemindsMe] = useState("");
+  const [fusionPrompt, setFusionPrompt] = useState(""); // 用户输入的文字 prompt，控制生图结果
   
   // 从所有素材中提取唯一标签
   const allTags = Array.from(new Set(materials.flatMap(m => m.tags))).sort();
@@ -451,11 +458,11 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
         });
       }, 100);
       
-      const fusionPrompt = `请将以下${selectedMaterials.length}个素材融合成一个新的创意场景描述（用于生成儿童绘本插画）：\n\n${materialDescriptions.join('\n\n')}\n\n请生成一个融合了所有元素的场景描述，适合儿童绘本插画风格，温馨有趣。直接给出场景描述，不要解释。`;
+      const fusionPromptText = `请将以下${selectedMaterials.length}个素材融合成一个新的创意场景描述（用于生成儿童绘本插画）：\n\n${materialDescriptions.join('\n\n')}\n\n请生成一个融合了所有元素的场景描述，适合儿童绘本插画风格，温馨有趣。直接给出场景描述，不要解释。${fusionPrompt.trim() ? `\n\n孩子额外要求的画面方向：${fusionPrompt.trim()}` : ""}`;
       
       const fusionDescription = await askAgent({ 
         persona: "story-coach", 
-        userPrompt: fusionPrompt, 
+        userPrompt: fusionPromptText, 
         settings 
       });
       
@@ -472,7 +479,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
         });
       }, 100);
       
-      const imagePrompt = `儿童绘本插画风格，温暖色调，${fusionDescription}`;
+      const imagePrompt = `儿童绘本插画风格，温暖色调，${fusionDescription}${fusionPrompt.trim() ? `，用户额外要求：${fusionPrompt.trim()}` : ""}`;
       const imageBlob = await generateImage(imagePrompt, settings);
       const imageUrl = URL.createObjectURL(imageBlob);
       
@@ -506,6 +513,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
       const response = await fetch(result.imageUrl);
       const blob = await response.blob();
       await createMaterialAction({
+        userId,
         title: title.trim() || `素材融合：${selectedMaterials.length}个元素`,
         kind: "观察",
         tags: selectedTags.join(","),
@@ -522,6 +530,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
       setSelectedTags([]);
       setINoticed("");
       setItRemindsMe("");
+      setFusionPrompt("");
     } catch {
       alert("保存失败");
     }
@@ -715,6 +724,22 @@ function MaterialFusionPanel({ materials, dragId, setDragId }: { materials: Mate
           50% { transform: scale(1.15) translateY(-5px); }
         }
       `}</style>
+
+      {/* 融合提示词（可选）：控制生图结果 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+          融合提示词（可选）
+          <span className="muted" style={{ fontWeight: 400, fontSize: "0.75rem", marginLeft: "var(--space-2)" }}>
+            用文字告诉 AI 你想要什么画面，会直接影响生成结果
+          </span>
+        </span>
+        <textarea
+          value={fusionPrompt}
+          onChange={(e) => setFusionPrompt(e.target.value)}
+          placeholder="例如：两个人手牵手站在星空下 / 画面要更梦幻一点…"
+          style={{ minHeight: 60, resize: "vertical", fontSize: "0.9rem", lineHeight: 1.6 }}
+        />
+      </div>
 
       <button
         onClick={handleBrew}

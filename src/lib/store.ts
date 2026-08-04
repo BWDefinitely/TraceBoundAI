@@ -5,16 +5,18 @@
 export type { AiProvider, AiSettings } from "./ai-settings";
 import type { AiProvider, AiSettings } from "./ai-settings";
 
-export type MaterialKind = "观察" | "感受" | "想法" | "对话" | "人物" | "物品";
+export type MaterialKind = "观察" | "想法" | "时间" | "地点" | "人物" | "物品";
 
 export interface Material {
   id: string;
+  userId: string;            // 用户ID，用于隔离不同用户的素材
   title: string;
   kind: MaterialKind;
   tags: string[];
   createdAt: string;
   updatedAt: string;
   favorite: boolean;
+  description: string;       // 素材描述（AI 读图生成的简单描述词，≤30字）
   // Phase A: Trace 三问表单
   iNoticed: string;          // "我注意到"
   itRemindsMe: string;       // "它让我想到"
@@ -47,6 +49,7 @@ export interface StoryStructure {
 
 export interface Story {
   id: string;
+  userId: string;             // 用户ID，用于隔离不同用户的故事
   title: string;
   metadata: StoryMetadata;    // 时间/地点/人物/事件
   structure: StoryStructure;  // 起承转合，每个槽位可拖拽素材
@@ -238,6 +241,8 @@ export const emptyShelf = (): StoryShelf => ({
 export function migrateMaterial(r: Material): Material {
   return {
     ...r,
+    userId: r.userId ?? '',
+    description: r.description ?? '',
     iNoticed: r.iNoticed ?? '',
     itRemindsMe: r.itRemindsMe ?? '',
     stillUnsure: r.stillUnsure ?? '',
@@ -264,6 +269,7 @@ export function migrateStory(r: any): Story {
   if (r.metadata && r.structure) {
     return {
       ...r,
+      userId: r.userId ?? '',
       metadata: r.metadata ?? emptyMetadata(),
       structure: r.structure ?? emptyStructure(),
       aiWordCount: r.aiWordCount ?? 0,
@@ -276,6 +282,7 @@ export function migrateStory(r: any): Story {
   // 旧版迁移：shelf → structure（简化映射，起承转合为空）
   return {
     id: r.id,
+    userId: r.userId ?? '',
     title: r.title || '未命名故事',
     metadata: emptyMetadata(),
     structure: emptyStructure(),

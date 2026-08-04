@@ -410,6 +410,47 @@ function mockObservationGuidance(whyTook: string, myThoughts: string, fallbackRe
   return fallbackReason ? `（模拟：${fallbackReason.slice(0, 10)}）${guidance}` : guidance;
 }
 
+// 生成图片的简单描述词（AI 读图，≤30字）。用于 Step1 素材卡里的「AI生成观察」。
+export async function generateImageDescription(imageBlob: Blob, settings: AiSettings): Promise<string> {
+  const provider = resolveVisionProvider(settings);
+  const systemPrompt =
+    "你是图片描述助手。用最简单、口语化的一句话描述图片里最重要的内容，" +
+    "不超过 30 个字，不要加修饰和评价，直接给出描述。用中文回答。";
+  const userPrompt = "请用不超过 30 个字，简单描述这张图片里最主要的内容。";
+
+  try {
+    let description: string;
+    if (provider === "anthropic") {
+      description = await callAnthropicVision(systemPrompt, userPrompt, imageBlob, settings);
+    } else if (provider === "openai-compat") {
+      description = await callOpenAiCompatVision(systemPrompt, userPrompt, imageBlob, settings);
+    } else if (provider === "custom") {
+      description = mockImageShortDescription();
+    } else {
+      description = mockImageShortDescription();
+    }
+    // 兜底截断到 30 字
+    if (description.length > 30) {
+      description = description.slice(0, 30);
+    }
+    return description.trim();
+  } catch (err) {
+    console.error("[ai] generateImageDescription failed, falling back to mock:", err);
+    return mockImageShortDescription();
+  }
+}
+
+function mockImageShortDescription(): string {
+  const list = [
+    "阳光下安静的小角落",
+    "一只正在打盹的小猫",
+    "雨后闪着光的小路",
+    "堆满旧书的小小书店",
+    "窗台上晒太阳的花盆",
+  ];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 // 安全地把 Blob 转 base64（分块避免 String.fromCharCode(...largeArray) 栈溢出）
 async function blobToBase64(imageBlob: Blob): Promise<string> {
   const bytes = new Uint8Array(await imageBlob.arrayBuffer());
