@@ -4,9 +4,12 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { StepIndicator } from "../../_components/StepIndicator";
 import { useData } from "../../_components/DataProvider";
+import { MaterialDetailModal } from "../../_components/MaterialDetailModal";
 import { getMediaBlob, saveMediaBlob, getAiSettings } from "../../../lib/client-store";
 import { completeStoryAction, saveStoryAction } from "../../_actions";
 import { generateImage } from "../../../lib/ai";
+import DOMPurify from "dompurify";
+import type { Material } from "../../../lib/store";
 
 const SLOT_LABELS: Record<string, string> = {
   discovery: "发现",
@@ -40,8 +43,9 @@ function Step5Content() {
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [expandedScene, setExpandedScene] = useState<string | null>(null);
+  const [expandedScene, setExpandedScene] = useState<string | null>("all"); // 默认全部展开
   const [materialPreviews, setMaterialPreviews] = useState<Map<string, string>>(new Map());
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
 
   // 检查是否需要自动生成场景图
   useEffect(() => {
@@ -63,22 +67,38 @@ function Step5Content() {
   useEffect(() => {
     if (!story) return;
     
-    const slots = ["discovery", "goal", "accident", "action", "change"] as const;
-    slots.forEach(async (slotKey) => {
-      const slotData = story.structure[slotKey];
-      if (!slotData?.linkedMaterials) return;
+    const urls: string[] = [];
+    
+    const loadPreviews = async () => {
+      const slots = ["discovery", "goal", "accident", "action", "change"] as const;
+      
+      for (const slotKey of slots) {
+        const slotData = story.structure[slotKey];
+        if (!slotData?.linkedMaterials) continue;
 
-      slotData.linkedMaterials.forEach(async (matId: string) => {
-        const mat = materials.find((m) => m.id === matId);
-        if (mat && mat.mediaKind === 'photo' && !materialPreviews.has(matId)) {
-          const blob = await getMediaBlob(matId);
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            setMaterialPreviews((prev) => new Map(prev).set(matId, url));
+        for (const matId of slotData.linkedMaterials) {
+          const mat = materials.find((m) => m.id === matId);
+          if (mat && mat.mediaKind === 'photo' && !materialPreviews.has(matId)) {
+            try {
+              const blob = await getMediaBlob(matId);
+              if (blob) {
+                const url = URL.createObjectURL(blob);
+                urls.push(url);
+                setMaterialPreviews((prev) => new Map(prev).set(matId, url));
+              }
+            } catch (err) {
+              console.error(`加载素材预览失败 (${matId}):`, err);
+            }
           }
         }
-      });
-    });
+      }
+    };
+    
+    loadPreviews();
+    
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
   }, [story, materials]);
 
   async function handleGenerateImages() {
@@ -200,7 +220,7 @@ function Step5Content() {
             lineHeight: 1.8,
             fontFamily: "var(--font-serif)",
           }}
-          dangerouslySetInnerHTML={{ __html: story.body }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(story.body) }}
         />
         
         {/* 字数统计 */}
@@ -226,7 +246,7 @@ function Step5Content() {
           {slots.map((slotKey) => {
             const slot = story.structure[slotKey];
             const linkedMats = materials.filter(m => slot.linkedMaterials?.includes(m.id));
-            const isExpanded = expandedScene === slotKey;
+            const isExpanded = expandedScene === "all" || expandedScene === slotKey;
             
             return (
               <div 
@@ -274,6 +294,7 @@ function Step5Content() {
                       return (
                         <div 
                           key={mat.id}
+                          onClick={() => setSelectedMaterial(mat)}
                           style={{
                             display: "flex",
                             flexDirection: "column",
@@ -281,6 +302,17 @@ function Step5Content() {
                             padding: "var(--space-2)",
                             background: "var(--surface)",
                             borderRadius: "var(--radius)",
+                            border: "1px solid var(--line-soft)",
+                            cursor: "pointer",
+                            transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "translateY(-2px)";
+                            e.currentTarget.style.boxShadow = "var(--shadow-1)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow = "none";
                           }}
                         >
                           {previewUrl && (
@@ -433,6 +465,14 @@ function Step5Content() {
           {completing ? "完成中..." : "✓ 完成故事"}
         </button>
       </div>
+
+      {/* 素材详情弹窗（可编辑 / 删除） */}
+      {selectedMaterial && (
+        <MaterialDetailModal
+          material={selectedMaterial}
+          onClose={() => setSelectedMaterial(null)}
+        />
+      )}
     </div>
   );
 }

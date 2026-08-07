@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useData } from "./_components/DataProvider";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDrawers } from "./_components/AppShell";
 
 export default function HomePage() {
   const router = useRouter();
   const { materials, stories, alchemy, reflections, settings, providerLabel } = useData();
+  const { openDrawer } = useDrawers();
   const provider = settings?.provider ?? "mock";
   const modelLabel = providerLabel.split(" · ")[1] ?? providerLabel;
   const active = stories.filter((s) => !s.completedAt);
@@ -23,7 +25,7 @@ export default function HomePage() {
 
   function handleStartNewStory() {
     if (!newUserId.trim()) {
-      alert("请输入用户ID（不能为空）");
+      alert("请输入姓名/ID（不能为空）");
       return;
     }
     // 保存到 sessionStorage，传递给后续步骤；故事标题留空时默认「新故事」
@@ -112,12 +114,7 @@ export default function HomePage() {
             description="配置 AI 模型、API Key、生图和读图功能。"
             href="#"
             icon="⚙️"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                const event = new CustomEvent('openDrawer', { detail: 'settings' });
-                window.dispatchEvent(event);
-              }
-            }}
+            onClick={() => openDrawer("settings")}
           />
           <FeatureCard
             number="5"
@@ -273,13 +270,13 @@ export default function HomePage() {
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
               <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                 <span style={{ fontSize: "0.95rem", fontWeight: 600 }}>
-                  用户ID <span style={{ color: "var(--danger)" }}>*</span>
+                  姓名 / ID <span style={{ color: "var(--danger)" }}>*</span>
                 </span>
                 <input
                   type="text"
                   value={newUserId}
                   onChange={(e) => setNewUserId(e.target.value)}
-                  placeholder="输入你的ID（用于区分不同用户的素材和故事，不能为空）"
+                  placeholder="输入你的姓名或ID（不能为空）"
                   style={{ fontSize: "0.95rem" }}
                   required
                 />
@@ -290,7 +287,7 @@ export default function HomePage() {
                   type="text"
                   value={newStoryTitle}
                   onChange={(e) => setNewStoryTitle(e.target.value)}
-                  placeholder="输入故事标题"
+                  placeholder="如果为空则为默认新故事"
                   style={{ fontSize: "0.95rem" }}
                 />
               </label>

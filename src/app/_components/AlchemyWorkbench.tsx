@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Material } from "../../lib/store";
 import { generateImage, readImage, askAgent } from "../../lib/ai";
 import { getAiSettings, getMediaBlob } from "../../lib/client-store";
@@ -371,6 +371,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
   const [iNoticed, setINoticed] = useState("");
   const [itRemindsMe, setItRemindsMe] = useState("");
   const [fusionPrompt, setFusionPrompt] = useState(""); // 用户输入的文字 prompt，控制生图结果
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // 从所有素材中提取唯一标签
   const allTags = Array.from(new Set(materials.flatMap(m => m.tags))).sort();
@@ -395,23 +396,49 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
 
   // 加载素材预览图
   useEffect(() => {
-    selectedMaterials.forEach(async (id) => {
-      const material = materialById(id);
-      if (material && material.mediaKind === 'photo' && !materialPreviews.has(id)) {
-        const blob = await getMediaBlob(id);
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          setMaterialPreviews((prev) => new Map(prev).set(id, url));
+    const urls: string[] = [];
+    
+    const loadPreviews = async () => {
+      for (const id of selectedMaterials) {
+        const material = materialById(id);
+        if (material && material.mediaKind === 'photo' && !materialPreviews.has(id)) {
+          try {
+            const blob = await getMediaBlob(id);
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              urls.push(url);
+              setMaterialPreviews((prev) => new Map(prev).set(id, url));
+            }
+          } catch (err) {
+            console.error(`加载素材预览失败 (${id}):`, err);
+          }
         }
       }
-    });
+    };
+    
+    loadPreviews();
+    
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
   }, [selectedMaterials]);
 
   async function handleBrew() {
-    if (selectedMaterials.length < 2) {
-      alert("至少选择 2 个素材才能融合");
+    if (selectedMaterials.length < 1) {
+      alert("至少放入 1 个素材才能融合");
       return;
     }
+    if (selectedMaterials.length === 1 && !fusionPrompt.trim()) {
+      alert("只放入 1 个素材时，请填写「融合提示词」来描述想要的画面");
+      return;
+    }
+    
+    // 取消之前的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    abortControllerRef.current = new AbortController();
     
     setBrewing(true);
     setBrewingProgress(0);
@@ -430,6 +457,10 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
       const materialDescriptions: string[] = [];
       
       for (const id of selectedMaterials) {
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('操作已取消');
+        }
+        
         const material = materialById(id);
         if (material) {
           if (material.mediaKind === 'photo') {
@@ -447,6 +478,10 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
       
       clearInterval(progressInterval1);
       setBrewingProgress(20);
+      
+      if (abortControllerRef.current?.signal.aborted) {
+        throw new Error('操作已取消');
+      }
       
       // 第二步：生成融合描述
       // 进度从 20% 缓慢增加到 50%
@@ -468,6 +503,10 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
       
       clearInterval(progressInterval2);
       setBrewingProgress(50);
+      
+      if (abortControllerRef.current?.signal.aborted) {
+        throw new Error('操作已取消');
+      }
       
       // 第三步：生成图片
       // 进度从 50% 缓慢增加到 90%
@@ -539,7 +578,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
   return (
     <div className="card" style={{ padding: "var(--space-5)", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <h3 style={{ fontSize: "1.1rem", margin: 0 }}>素材融合</h3>
-      <p className="muted" style={{ fontSize: "0.85rem" }}>从左侧素材库拖动至少 2 个素材到炼金锅，AI 会融合它们的灵感并生成新素材。</p>
+      <p className="muted" style={{ fontSize: "0.85rem" }}>放入 2 个素材可直接融合；放入 1 个素材时，配合「融合提示词」也能生成图片。</p>
 
       {/* 素材预览区 */}
       {selectedMaterials.length > 0 && (
@@ -665,7 +704,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
         {!brewing && selectedMaterials.length === 0 ? (
           <p className="muted" style={{ fontSize: "0.9rem", textAlign: "center" }}>
             拖动素材到这里<br />
-            <span style={{ fontSize: "0.8rem" }}>至少需要 2 个素材</span>
+            <span style={{ fontSize: "0.8rem" }}>2 个素材直接融合；1 个素材请配提示词</span>
           </p>
         ) : !brewing ? (
           <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
@@ -744,7 +783,7 @@ function MaterialFusionPanel({ materials, dragId, setDragId, userId }: { materia
       <button
         onClick={handleBrew}
         className="btn-primary"
-        disabled={brewing || selectedMaterials.length < 2}
+        disabled={brewing || selectedMaterials.length < 1 || (selectedMaterials.length === 1 && !fusionPrompt.trim())}
       >
         {brewing ? `融合中... ${brewingProgress}%` : "🔥 开始融合"}
       </button>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Material, MaterialKind } from "../../lib/store";
 import { getMediaBlob } from "../../lib/client-store";
-import { updateMaterialAction } from "../_actions";
+import { updateMaterialAction, deleteMaterialAction } from "../_actions";
 
 const KINDS: MaterialKind[] = ["观察", "想法", "时间", "地点", "人物", "物品"];
 
@@ -22,6 +22,7 @@ export function MaterialDetailModal({ material, onClose }: Props) {
   const [itRemindsMe, setItRemindsMe] = useState(material.itRemindsMe);
   const [stillUnsure, setStillUnsure] = useState(material.stillUnsure);
   const [saving, setSaving] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
 
   useEffect(() => {
     if (material.mediaKind === 'photo') {
@@ -53,6 +54,20 @@ export function MaterialDetailModal({ material, onClose }: Props) {
     } catch (err) {
       console.error("保存素材失败:", err);
       alert("保存失败，请重试");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`确定删除「${material.title}」吗？删除后无法恢复。`)) return;
+    setSaving(true);
+    try {
+      await deleteMaterialAction(material.id);
+      onClose();
+    } catch (err) {
+      console.error("删除素材失败:", err);
+      alert("删除失败，请重试");
     } finally {
       setSaving(false);
     }
@@ -101,6 +116,7 @@ export function MaterialDetailModal({ material, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
+            aria-label="关闭对话框"
             style={{
               background: "none",
               border: "none",
@@ -115,19 +131,84 @@ export function MaterialDetailModal({ material, onClose }: Props) {
           </button>
         </div>
 
-        {/* 图片预览 */}
-        {imageUrl && (
-          <div style={{ 
-            width: "100%", 
-            maxHeight: 260,
-            borderRadius: "var(--radius)", 
-            overflow: "hidden",
-            background: "var(--surface)"
-          }}>
-            <img 
-              src={imageUrl} 
+        {/* 素材预览 */}
+        {material.mediaKind === 'photo' && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>素材图片</span>
+            {imageUrl ? (
+              <div
+                style={{
+                  width: "100%",
+                  minHeight: 200,
+                  maxHeight: 360,
+                  borderRadius: "var(--radius)",
+                  overflow: "hidden",
+                  background: "var(--surface)",
+                  cursor: "zoom-in",
+                  position: "relative",
+                  border: "1px solid var(--border)",
+                }}
+                onClick={() => setZoomed(true)}
+              >
+                <img
+                  src={imageUrl}
+                  alt={material.title}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    bottom: 8,
+                    right: 8,
+                    fontSize: "0.75rem",
+                    background: "rgba(0,0,0,0.7)",
+                    color: "white",
+                    borderRadius: "var(--radius-pill)",
+                    padding: "4px 12px",
+                  }}
+                >
+                  🔍 点击查看大图
+                </span>
+              </div>
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: 200,
+                  borderRadius: "var(--radius)",
+                  background: "var(--surface)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <p className="muted" style={{ fontSize: "0.9rem" }}>加载图片中...</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 大图预览（lightbox） */}
+        {zoomed && imageUrl && (
+          <div
+            onClick={() => setZoomed(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.85)",
+              zIndex: 2000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "zoom-out",
+              padding: "var(--space-4)",
+            }}
+          >
+            <img
+              src={imageUrl}
               alt={material.title}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              style={{ maxWidth: "94vw", maxHeight: "94vh", borderRadius: "var(--radius)", boxShadow: "var(--shadow-3)" }}
             />
           </div>
         )}
@@ -201,13 +282,24 @@ export function MaterialDetailModal({ material, onClose }: Props) {
         </label>
 
         {/* 操作按钮 */}
-        <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "flex-end", marginTop: "var(--space-2)" }}>
-          <button onClick={onClose} className="btn-secondary">
-            取消
+        <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "space-between", alignItems: "center", marginTop: "var(--space-2)" }}>
+          <button
+            onClick={handleDelete}
+            className="btn-ghost"
+            disabled={saving}
+            style={{ color: "var(--danger)" }}
+            aria-label="删除素材"
+          >
+            🗑️ 删除素材
           </button>
-          <button onClick={handleSave} className="btn-primary" disabled={saving}>
-            {saving ? "保存中..." : "✓ 保存修改"}
-          </button>
+          <div style={{ display: "flex", gap: "var(--space-3)" }}>
+            <button onClick={onClose} className="btn-secondary">
+              取消
+            </button>
+            <button onClick={handleSave} className="btn-primary" disabled={saving}>
+              {saving ? "保存中..." : "✓ 保存修改"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

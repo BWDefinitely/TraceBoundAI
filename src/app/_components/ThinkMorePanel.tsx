@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Material, Story, StorySlot } from "../../lib/store";
 import { askAgent } from "../../lib/ai";
-import { getAiSettings } from "../../lib/client-store";
+import { getAiSettings, getMediaBlob } from "../../lib/client-store";
 
 type SlotKey = "discovery" | "goal" | "accident" | "action" | "change";
 
@@ -74,9 +74,39 @@ export function ThinkMorePanel({ slotKey, slotData, story, materials, onClose, o
   const [generating, setGenerating] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [materialPreviews, setMaterialPreviews] = useState<Map<string, string>>(new Map());
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   // 获取关联的素材
   const linkedMaterials = materials.filter(m => slotData.linkedMaterials.includes(m.id));
+
+  // 加载素材预览图
+  useEffect(() => {
+    const urls: string[] = [];
+    
+    const loadPreviews = async () => {
+      for (const mat of linkedMaterials) {
+        if (mat.mediaKind === 'photo' && !materialPreviews.has(mat.id)) {
+          try {
+            const blob = await getMediaBlob(mat.id);
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              urls.push(url);
+              setMaterialPreviews((prev) => new Map(prev).set(mat.id, url));
+            }
+          } catch (err) {
+            console.error(`加载素材预览失败 (${mat.id}):`, err);
+          }
+        }
+      }
+    };
+    
+    loadPreviews();
+    
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [linkedMaterials]);
 
   async function handleGenerateIdeas(buttonLabel: string) {
     setGenerating(true);
@@ -222,20 +252,57 @@ ${materialsDesc || '(暂无)'}
             </span>
             {linkedMaterials.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", maxHeight: 180, overflowY: "auto" }}>
-                {linkedMaterials.map(m => (
-                  <div 
-                    key={m.id}
-                    style={{ 
-                      padding: "var(--space-1) var(--space-2)",
-                      background: "var(--accent-wash)",
-                      borderRadius: "var(--radius-sm)",
-                      fontSize: "0.75rem"
-                    }}
-                  >
-                    <span className="tag" style={{ fontSize: "0.65rem", marginRight: 4 }}>{m.kind}</span>
-                    <span style={{ fontWeight: 600 }}>{m.title}</span>
-                  </div>
-                ))}
+                {linkedMaterials.map(m => {
+                  const previewUrl = materialPreviews.get(m.id);
+                  return (
+                    <div 
+                      key={m.id}
+                      style={{ 
+                        padding: "var(--space-1) var(--space-2)",
+                        background: "var(--accent-wash)",
+                        borderRadius: "var(--radius-sm)",
+                        fontSize: "0.75rem"
+                      }}
+                    >
+                      <div style={{ marginBottom: previewUrl ? "var(--space-1)" : 0 }}>
+                        <span className="tag" style={{ fontSize: "0.65rem", marginRight: 4 }}>{m.kind}</span>
+                        <span style={{ fontWeight: 600 }}>{m.title}</span>
+                      </div>
+                      {previewUrl && (
+                        <div 
+                          onClick={() => setZoomedImage(previewUrl)}
+                          style={{ 
+                            width: "100%", 
+                            height: 80, 
+                            borderRadius: "var(--radius-sm)", 
+                            overflow: "hidden", 
+                            background: "var(--surface)",
+                            cursor: "zoom-in",
+                            position: "relative"
+                          }}
+                        >
+                          <img 
+                            src={previewUrl} 
+                            alt={m.title} 
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                          />
+                          <span style={{
+                            position: "absolute",
+                            bottom: 2,
+                            right: 2,
+                            background: "rgba(0,0,0,0.6)",
+                            color: "white",
+                            padding: "1px 4px",
+                            borderRadius: "var(--radius-sm)",
+                            fontSize: "0.65rem"
+                          }}>
+                            🔍
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="muted" style={{ fontSize: "0.8rem", padding: "var(--space-2)" }}>暂无</p>
@@ -395,6 +462,34 @@ ${materialsDesc || '(暂无)'}
           )}
         </div>
       </div>
+
+      {/* Lightbox 图片放大 */}
+      {zoomedImage && (
+        <div 
+          onClick={() => setZoomedImage(null)}
+          style={{ 
+            position: "fixed", 
+            inset: 0, 
+            background: "rgba(0,0,0,0.85)", 
+            zIndex: 2000, 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center",
+            cursor: "zoom-out"
+          }}
+        >
+          <img 
+            src={zoomedImage} 
+            style={{ 
+              maxWidth: "94vw", 
+              maxHeight: "94vh", 
+              objectFit: "contain",
+              borderRadius: "var(--radius)"
+            }} 
+            alt="放大预览"
+          />
+        </div>
+      )}
     </div>
   );
 }

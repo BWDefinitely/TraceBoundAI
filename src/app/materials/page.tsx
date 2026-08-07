@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useData } from "../_components/DataProvider";
 import { createMaterialAction, deleteMaterialAction, updateMaterialAction } from "../_actions";
 import { getMediaBlob } from "../../lib/client-store";
-import type { MaterialKind } from "../../lib/store";
+import { MaterialDetailModal } from "../_components/MaterialDetailModal";
+import type { Material, MaterialKind } from "../../lib/store";
 
 const KINDS: MaterialKind[] = ["观察", "想法", "时间", "地点", "人物", "物品"];
 
@@ -12,6 +13,7 @@ export default function MaterialsPage() {
   const { materials } = useData();
   const [mode, setMode] = useState<"list" | "add">("list");
   const [filter, setFilter] = useState<MaterialKind | "all">("all");
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
 
   return (
     <div className="fade-in">
@@ -69,8 +71,16 @@ export default function MaterialsPage() {
           </div>
 
           {/* 素材列表 */}
-          <MaterialsList materials={materials} filter={filter} />
+          <MaterialsList materials={materials} filter={filter} onOpen={setSelectedMaterial} />
         </>
+      )}
+
+      {/* 素材详情弹窗（可编辑 / 删除） */}
+      {selectedMaterial && (
+        <MaterialDetailModal
+          material={selectedMaterial}
+          onClose={() => setSelectedMaterial(null)}
+        />
       )}
     </div>
   );
@@ -207,7 +217,7 @@ function AddMaterialForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function MaterialsList({ materials, filter }: { materials: any[]; filter: MaterialKind | "all" }) {
+function MaterialsList({ materials, filter, onOpen }: { materials: Material[]; filter: MaterialKind | "all"; onOpen: (m: Material) => void }) {
   const filtered = filter === "all" ? materials : materials.filter((m) => m.kind === filter);
 
   if (filtered.length === 0) {
@@ -221,13 +231,13 @@ function MaterialsList({ materials, filter }: { materials: any[]; filter: Materi
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "var(--space-4)" }}>
       {filtered.map((m) => (
-        <MaterialCard key={m.id} material={m} />
+        <MaterialCard key={m.id} material={m} onOpen={onOpen} />
       ))}
     </div>
   );
 }
 
-function MaterialCard({ material }: { material: any }) {
+function MaterialCard({ material, onOpen }: { material: Material; onOpen: (m: Material) => void }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // 加载图片：按素材 id 读取 IndexedDB 中的媒体 Blob
@@ -247,7 +257,25 @@ function MaterialCard({ material }: { material: any }) {
   }, [material.id, material.mediaKind]);
 
   return (
-    <div className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+    <div
+      className="card"
+      onClick={() => onOpen(material)}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-3)",
+        cursor: "pointer",
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = "var(--shadow-2)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "var(--shadow-1)";
+      }}
+    >
       {/* 头部 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
         <span className="tag">{material.kind}</span>

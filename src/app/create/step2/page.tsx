@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { StepIndicator } from "../../_components/StepIndicator";
 import { useData } from "../../_components/DataProvider";
+import { MaterialDetailModal } from "../../_components/MaterialDetailModal";
 import { createStory } from "../../../lib/client-store";
 import { emptyMetadata, emptyStructure } from "../../../lib/store";
-import type { StoryMetadata, MaterialKind } from "../../../lib/store";
+import type { StoryMetadata, MaterialKind, Material } from "../../../lib/store";
 import { createMaterialAction } from "../../_actions";
 import { DATA_CHANGED_EVENT } from "../../_actions";
 
@@ -262,14 +263,16 @@ function MaterialKindPicker({
 }: {
   kind: MaterialKind;
   userId: string;
-  materials: { id: string; title: string; kind: MaterialKind }[];
+  materials: Material[];
   onPick: (title: string) => void;
   onClose: () => void;
 }) {
   const [text, setText] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Material | null>(null);
 
-  const kindMaterials = materials.filter((m) => m.kind === kind);
+  // 只显示当前用户的该类型素材
+  const kindMaterials = materials.filter((m) => m.kind === kind && m.userId === userId);
 
   async function handleCreate() {
     const content = text.trim();
@@ -366,15 +369,39 @@ function MaterialKindPicker({
             <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>从素材库选择</span>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", maxHeight: 240, overflowY: "auto" }}>
               {kindMaterials.map((mat) => (
-                <button
+                <div
                   key={mat.id}
-                  type="button"
-                  onClick={() => onPick(mat.title)}
-                  className="btn-ghost"
-                  style={{ justifyContent: "flex-start", textAlign: "left", fontSize: "0.9rem" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    padding: "0.25rem 0.4rem",
+                    borderRadius: "var(--radius)",
+                    border: "1px solid var(--line-soft)",
+                    background: "var(--card)",
+                  }}
                 >
-                  {mat.title}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onPick(mat.title)}
+                    className="btn-ghost"
+                    style={{ flex: 1, justifyContent: "flex-start", textAlign: "left", fontSize: "0.9rem", padding: "0.3rem 0.5rem" }}
+                  >
+                    {mat.title}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditing(mat);
+                    }}
+                    title="查看 / 编辑 / 删除"
+                    style={{ fontSize: "0.85rem", padding: "0.3rem 0.5rem", flexShrink: 0 }}
+                  >
+                    ✏️
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -403,6 +430,14 @@ function MaterialKindPicker({
           </button>
         </div>
       </div>
+
+      {/* 素材详情弹窗（可编辑 / 删除） */}
+      {editing && (
+        <MaterialDetailModal
+          material={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

@@ -6,8 +6,10 @@ import { StepIndicator } from "../../_components/StepIndicator";
 import { useData } from "../../_components/DataProvider";
 import { saveStoryAction } from "../../_actions";
 import { AiCoachPanel } from "../../_components/AiCoachPanel";
+import { MaterialDetailModal } from "../../_components/MaterialDetailModal";
 import { askAgent } from "../../../lib/ai";
-import { getAiSettings } from "../../../lib/client-store";
+import DOMPurify from "dompurify";
+import { getAiSettings, getMediaBlob } from "../../../lib/client-store";
 import type { Material } from "../../../lib/store";
 
 const IDLE_MS = 45000; // 45 秒无操作触发自动灵感提示
@@ -115,6 +117,8 @@ function Step4Content() {
 
   const editorRef = useRef<HTMLDivElement>(null);
   const cleanHtmlRef = useRef<string | null>(null); // 未加 AI 标记的正文 HTML 快照（用于清除标记还原）
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [materialPreviews, setMaterialPreviews] = useState<Map<string, string>>(new Map());
 
   // 根据当前故事的 userId 过滤素材
   const filteredMaterials = story ? materials.filter((m) => m.userId === story.userId) : [];
@@ -122,6 +126,44 @@ function Step4Content() {
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintShownRef = useRef(false);
   const lastBodyRef = useRef("");
+
+  // 加载素材预览图
+  useEffect(() => {
+    if (!story) return;
+    
+    const urls: string[] = [];
+    
+    const loadPreviews = async () => {
+      const slots = ["discovery", "goal", "accident", "action", "change"] as const;
+      
+      for (const slotKey of slots) {
+        const slotData = story.structure[slotKey];
+        if (!slotData?.linkedMaterials) continue;
+
+        for (const matId of slotData.linkedMaterials) {
+          const mat = filteredMaterials.find((m) => m.id === matId);
+          if (mat && mat.mediaKind === 'photo' && !materialPreviews.has(matId)) {
+            try {
+              const blob = await getMediaBlob(matId);
+              if (blob) {
+                const url = URL.createObjectURL(blob);
+                urls.push(url);
+                setMaterialPreviews((prev) => new Map(prev).set(matId, url));
+              }
+            } catch (err) {
+              console.error(`加载素材预览失败 (${matId}):`, err);
+            }
+          }
+        }
+      }
+    };
+    
+    loadPreviews();
+    
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [story, filteredMaterials]);
 
   // 初始化正文/字数
   useEffect(() => {
@@ -131,6 +173,7 @@ function Step4Content() {
       setTitle(story.title);
       
       // 如果正文为空，自动粘贴五个场景内容
+      // 五段剧情各包一个 <p> 分段继承，保证在编辑器里是分开的段落（直接拼 \n 会被 HTML 折叠成一行）
       if (!story.body || story.body.trim().length === 0) {
         const sceneTexts = [
           story.structure.discovery.text,
@@ -141,23 +184,29 @@ function Step4Content() {
         ].filter(t => t && t.trim().length > 0);
         
         if (sceneTexts.length > 0) {
-          const combinedText = sceneTexts.join('\n\n');
+          const combinedText = sceneTexts
+            .map((t) => `<p>${escapeHtmlForSearch(t)}</p>`)
+            .join("\n");
+          const inheritedWordCount = stripHtmlForCount(combinedText).length;
           setBody(combinedText);
           lastBodyRef.current = combinedText;
-          setUserWordCount(stripHtmlForCount(combinedText).length);
-          // 保存到story
-          saveStoryAction(story.id, { body: combinedText, userWordCount: stripHtmlForCount(combinedText).length });
+          setUserWordCount(inheritedWordCount);
+          setAiWordCount(story.aiWordCount ?? 0);
+          // 保存到story（继承的文字算作用户字数）
+          saveStoryAction(story.id, { body: combinedText, userWordCount: inheritedWordCount });
         } else {
           setBody(story.body);
           lastBodyRef.current = story.body;
+          setUserWordCount(story.userWordCount ?? pureTextLength);
+          setAiWordCount(story.aiWordCount ?? 0);
         }
       } else {
         setBody(story.body);
         lastBodyRef.current = story.body;
+        setUserWordCount(story.userWordCount ?? pureTextLength);
+        setAiWordCount(story.aiWordCount ?? 0);
       }
       
-      setAiWordCount(story.aiWordCount ?? 0);
-      setUserWordCount(story.userWordCount ?? pureTextLength);
       setLoaded(true);
     }
   }, [story, loaded]);
@@ -493,10 +542,54 @@ function Step4Content() {
                   )}
                   
                   {linkedMats.length > 0 && (
-                    <div style={{ marginTop: "var(--space-1)", paddingTop: "var(--space-1)", borderTop: "1px solid var(--line)" }}>
-                      <span style={{ fontSize: "0.75rem", color: "var(--ink-soft)" }}>
-                        🖼 {linkedMats.length} 个素材
+                    <div style={{ marginTop: "var(--space-1)", paddingTop: "var(--space-1)", borderTop: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+                      <span style={{ fontSize: "0.72rem", color: "var(--ink-soft)" }}>
+                        🖼 {linkedMats.length} 个素材 · 点击查看
                       </span>
+                      {linkedMats.map((m) => {
+                        const previewUrl = materialPreviews.get(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => setSelectedMaterial(m)}
+                            className="btn-ghost"
+                            style={{ 
+                              fontSize: "0.78rem", 
+                              padding: "4px 6px", 
+                              justifyContent: "flex-start", 
+                              textAlign: "left", 
+                              gap: "var(--space-1)",
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                          >
+                            {previewUrl ? (
+                              <img 
+                                src={previewUrl} 
+                                alt={m.title}
+                                style={{ 
+                                  width: 32, 
+                                  height: 32, 
+                                  objectFit: "cover", 
+                                  borderRadius: "var(--radius-sm)",
+                                  flexShrink: 0,
+                                }} 
+                              />
+                            ) : (
+                              <span style={{ width: 32, textAlign: "center", flexShrink: 0 }}>
+                                {m.mediaKind === "photo" ? "🖼" : "📝"}
+                              </span>
+                            )}
+                            <span style={{ 
+                              overflow: "hidden", 
+                              textOverflow: "ellipsis", 
+                              whiteSpace: "nowrap",
+                            }}>
+                              {m.title}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -564,6 +657,14 @@ function Step4Content() {
           </button>
         </div>
       </div>
+
+      {/* 素材详情弹窗（可编辑 / 删除 / 查看大图） */}
+      {selectedMaterial && (
+        <MaterialDetailModal
+          material={selectedMaterial}
+          onClose={() => setSelectedMaterial(null)}
+        />
+      )}
     </div>
   );
 }
@@ -593,13 +694,13 @@ function RichTextArea({
 
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== value) {
-      ref.current.innerHTML = value;
+      ref.current.innerHTML = DOMPurify.sanitize(value);
     }
   }, [value]);
 
   function exec(cmd: string, arg?: string) {
     document.execCommand(cmd, false, arg);
-    if (ref.current) onChange(ref.current.innerHTML);
+    if (ref.current) onChange(DOMPurify.sanitize(ref.current.innerHTML));
   }
 
   return (
@@ -612,7 +713,7 @@ function RichTextArea({
       <div
         ref={setRef}
         contentEditable={!disabled}
-        onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
+        onInput={(e) => onChange(DOMPurify.sanitize((e.target as HTMLDivElement).innerHTML))}
         onBlur={onBlur}
         suppressContentEditableWarning
         style={{

@@ -25,6 +25,7 @@ export function ImportImageCard({ image, onUpdate, onGenerateGuidance, onGenerat
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [guidanceHint, setGuidanceHint] = useState(image.guidanceHint ?? "");
+  const [zoomed, setZoomed] = useState(false);
 
   // 加载图片
   useEffect(() => {
@@ -122,19 +123,71 @@ export function ImportImageCard({ image, onUpdate, onGenerateGuidance, onGenerat
         border: isSaved ? "2px solid var(--accent)" : "1px solid var(--line)",
       }}
     >
-      {/* 图片预览 */}
+      {/* 图片预览（点击放大） */}
       {imageUrl && (
-        <div style={{ 
-          width: "100%", 
-          height: 200, 
-          borderRadius: "var(--radius)", 
-          overflow: "hidden",
-          background: "var(--surface)"
-        }}>
-          <img 
-            src={imageUrl} 
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="点击查看大图"
+          onClick={() => setZoomed(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setZoomed(true);
+            }
+          }}
+          style={{
+            width: "100%",
+            height: 200,
+            borderRadius: "var(--radius)",
+            overflow: "hidden",
+            background: "var(--surface)",
+            cursor: "zoom-in",
+            position: "relative",
+          }}
+        >
+          <img
+            src={imageUrl}
+            alt={image.materialName || image.description || "素材图片"}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              bottom: 8,
+              right: 8,
+              fontSize: "0.75rem",
+              background: "rgba(0,0,0,0.55)",
+              color: "white",
+              borderRadius: "var(--radius-pill)",
+              padding: "2px 10px",
+            }}
+          >
+            🔍 点击放大
+          </span>
+        </div>
+      )}
+
+      {/* 大图预览（lightbox） */}
+      {zoomed && imageUrl && (
+        <div
+          onClick={() => setZoomed(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "zoom-out",
+            padding: "var(--space-4)",
+          }}
+        >
+          <img
+            src={imageUrl}
             alt="素材"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            style={{ maxWidth: "94vw", maxHeight: "94vh", borderRadius: "var(--radius)", boxShadow: "var(--shadow-3)" }}
           />
         </div>
       )}
